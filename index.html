@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Campus Health Dashboard</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="masthead">
+        <div>
+          <p class="eyebrow">Union campus metrics</p>
+          <h1>Campus Health Dashboard</h1>
+        </div>
+        <div class="source-block">
+          <span id="latestDate">Latest: --</span>
+          <span id="sourceName">Source workbook</span>
+          <span id="liveStatus">Static workbook data</span>
+          <div class="source-actions">
+            <button id="connectExcelButton" type="button">Connect Excel</button>
+            <button id="refreshExcelButton" type="button" disabled>Refresh</button>
+          </div>
+        </div>
+      </header>
+
+      <section class="toolbar" aria-label="Dashboard controls">
+        <label class="field">
+          <span>Campus</span>
+          <select id="campusSelect"></select>
+        </label>
+        <div class="field grow">
+          <span>Metric</span>
+          <div id="metricTabs" class="segmented" role="tablist"></div>
+        </div>
+        <label class="toggle">
+          <input id="eventToggle" type="checkbox" checked />
+          <span>Event weeks</span>
+        </label>
+      </section>
+
+      <section id="kpis" class="kpi-grid" aria-label="Key metrics"></section>
+
+      <section class="layout">
+        <figure class="panel chart-panel">
+          <figcaption>
+            <div>
+              <span class="panel-kicker">Trend</span>
+              <h2 id="trendTitle">Attendance Trend</h2>
+            </div>
+            <span id="trendMeta" class="panel-meta"></span>
+          </figcaption>
+          <div id="lineChart" class="chart chart-line" aria-label="Metric trend chart"></div>
+        </figure>
+
+        <aside class="panel insights-panel">
+          <div class="panel-heading">
+            <span class="panel-kicker">Insight engine</span>
+            <h2>Signals</h2>
+          </div>
+          <div id="insights" class="insight-list"></div>
+        </aside>
+      </section>
+
+      <section class="grid-two">
+        <figure class="panel">
+          <figcaption>
+            <div>
+              <span class="panel-kicker">Latest week</span>
+              <h2 id="barTitle">Campus Comparison</h2>
+            </div>
+            <span id="barMeta" class="panel-meta"></span>
+          </figcaption>
+          <div id="barChart" class="chart chart-bars" aria-label="Campus comparison chart"></div>
+        </figure>
+
+        <figure class="panel">
+          <figcaption>
+            <div>
+              <span class="panel-kicker">Volatility</span>
+              <h2>10%+ Sunday Swings</h2>
+            </div>
+            <span class="panel-meta">YTD</span>
+          </figcaption>
+          <div id="volatilityChart" class="chart chart-volatility" aria-label="Volatility chart"></div>
+        </figure>
+      </section>
+
+      <section class="panel big-five-panel">
+        <div class="panel-heading big-five-heading">
+          <div>
+            <span class="panel-kicker">Big 5</span>
+            <h2>Event Performance</h2>
+          </div>
+          <label class="field compact-field">
+            <span>Event</span>
+            <select id="bigFiveEventSelect"></select>
+          </label>
+        </div>
+        <div id="bigFiveKpis" class="kpi-grid compact-kpis" aria-label="Big 5 key metrics"></div>
+        <div class="big-five-layout">
+          <figure>
+            <figcaption>
+              <div>
+                <span class="panel-kicker">Year trend</span>
+                <h2 id="bigFiveTrendTitle">Campaign Attendance</h2>
+              </div>
+              <span id="bigFiveTrendMeta" class="panel-meta"></span>
+            </figcaption>
+            <div id="bigFiveYearChart" class="chart chart-bars" aria-label="Big 5 year trend chart"></div>
+          </figure>
+          <figure>
+            <figcaption>
+              <div>
+                <span class="panel-kicker">Latest year</span>
+                <h2 id="bigFivePhaseTitle">Phase Breakdown</h2>
+              </div>
+              <span id="bigFivePhaseMeta" class="panel-meta"></span>
+            </figcaption>
+            <div id="bigFivePhaseChart" class="chart chart-bars" aria-label="Big 5 phase chart"></div>
+          </figure>
+        </div>
+        <div id="bigFiveInsights" class="insight-list insight-grid"></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Event</th>
+                <th>Year</th>
+                <th>Campaign Total</th>
+                <th>Featured Total</th>
+                <th>YoY</th>
+                <th>Lift</th>
+                <th>Post Retention</th>
+              </tr>
+            </thead>
+            <tbody id="bigFiveTable"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel table-panel">
+        <div class="panel-heading row-heading">
+          <div>
+            <span class="panel-kicker">Campus detail</span>
+            <h2>Attendance Diagnostics</h2>
+          </div>
+          <span class="panel-meta">Click a row to focus</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Campus</th>
+                <th>Latest</th>
+                <th>WoW</th>
+                <th>Vs baseline</th>
+                <th>10%+ swings</th>
+                <th>Avg swing</th>
+              </tr>
+            </thead>
+            <tbody id="campusTable"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+    <script src="https://alcdn.msauth.net/browser/2.38.2/js/msal-browser.min.js"></script>
+    <script type="module" src="./src/app.js"></script>
+  </body>
+</html>
