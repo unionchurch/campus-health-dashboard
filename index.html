@@ -39,14 +39,14 @@
         </label>
       </section>
 
-      <section id="kpis" class="kpi-grid" aria-label="Key metrics"></section>
+      <section id="kpis" class="kpi-grid metric-mode-panel" data-metric-panel="standard" aria-label="Key metrics"></section>
 
-      <section class="layout">
+      <section class="layout metric-mode-panel" data-metric-panel="standard">
         <figure class="panel chart-panel">
           <figcaption>
             <div>
-              <span class="panel-kicker">Trend</span>
-              <h2 id="trendTitle">Attendance Trend</h2>
+              <span class="panel-kicker">Sunday View</span>
+              <h2 id="trendTitle">Attendance Over Time</h2>
             </div>
             <span id="trendMeta" class="panel-meta"></span>
           </figcaption>
@@ -55,18 +55,18 @@
 
         <aside class="panel insights-panel">
           <div class="panel-heading">
-            <span class="panel-kicker">Insight engine</span>
-            <h2>Signals</h2>
+            <span class="panel-kicker">Key Takeaways</span>
+            <h2>What to Notice</h2>
           </div>
           <div id="insights" class="insight-list"></div>
         </aside>
       </section>
 
-      <section class="grid-two">
+      <section class="grid-two metric-mode-panel" data-metric-panel="standard">
         <figure class="panel">
           <figcaption>
             <div>
-              <span class="panel-kicker">Latest week</span>
+              <span class="panel-kicker">Most Recent Sunday</span>
               <h2 id="barTitle">Campus Comparison</h2>
             </div>
             <span id="barMeta" class="panel-meta"></span>
@@ -77,20 +77,53 @@
         <figure class="panel">
           <figcaption>
             <div>
-              <span class="panel-kicker">Volatility</span>
-              <h2>10%+ Sunday Swings</h2>
+              <span class="panel-kicker">Attendance Movement</span>
+              <h2>Big Sunday-to-Sunday Changes</h2>
             </div>
-            <span class="panel-meta">YTD</span>
+            <span class="panel-meta">YTD, 10%+ from previous Sunday</span>
           </figcaption>
-          <div id="volatilityChart" class="chart chart-volatility" aria-label="Volatility chart"></div>
+          <div id="volatilityChart" class="chart chart-volatility" aria-label="Attendance movement chart"></div>
         </figure>
       </section>
 
-      <section class="panel big-five-panel">
+      <section class="health-mode metric-mode-panel is-hidden" data-metric-panel="health">
+        <section class="panel health-panel">
+          <div class="panel-heading health-heading">
+            <div>
+              <span class="panel-kicker">Monthly Health</span>
+              <h2>Campus Health Report</h2>
+            </div>
+            <span id="healthMonthMeta" class="panel-meta"></span>
+          </div>
+          <div class="table-wrap health-table-wrap">
+            <table class="health-report-table">
+              <thead id="healthTableHead"></thead>
+              <tbody id="healthTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel health-leadership-panel">
+          <div class="panel-heading health-heading">
+            <div>
+              <span class="panel-kicker">Leadership Detail</span>
+              <h2>Vacancies by Role</h2>
+            </div>
+            <span id="leadershipVacancyMeta" class="panel-meta"></span>
+          </div>
+          <div
+            id="leadershipVacancyChart"
+            class="chart chart-bars leadership-vacancy-chart"
+            aria-label="Leadership vacancies by role chart"
+          ></div>
+        </section>
+      </section>
+
+      <section class="panel big-five-panel metric-mode-panel is-hidden" data-metric-panel="big-five">
         <div class="panel-heading big-five-heading">
           <div>
             <span class="panel-kicker">Big 5</span>
-            <h2>Event Performance</h2>
+            <h2>Big 5 Ministry Moments</h2>
           </div>
           <label class="field compact-field">
             <span>Event</span>
@@ -102,8 +135,8 @@
           <figure>
             <figcaption>
               <div>
-                <span class="panel-kicker">Year trend</span>
-                <h2 id="bigFiveTrendTitle">Campaign Attendance</h2>
+                <span class="panel-kicker">Year by Year</span>
+                <h2 id="bigFiveTrendTitle">Total Event Attendance</h2>
               </div>
               <span id="bigFiveTrendMeta" class="panel-meta"></span>
             </figcaption>
@@ -112,8 +145,8 @@
           <figure>
             <figcaption>
               <div>
-                <span class="panel-kicker">Latest year</span>
-                <h2 id="bigFivePhaseTitle">Phase Breakdown</h2>
+                <span class="panel-kicker">Event Weeks</span>
+                <h2 id="bigFivePhaseTitle">Week-by-Week View</h2>
               </div>
               <span id="bigFivePhaseMeta" class="panel-meta"></span>
             </figcaption>
@@ -124,26 +157,18 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr>
-                <th>Event</th>
-                <th>Year</th>
-                <th>Campaign Total</th>
-                <th>Featured Total</th>
-                <th>YoY</th>
-                <th>Lift</th>
-                <th>Post Retention</th>
-              </tr>
+              <tr id="bigFiveTableHead"></tr>
             </thead>
             <tbody id="bigFiveTable"></tbody>
           </table>
         </div>
       </section>
 
-      <section class="panel table-panel">
+      <section class="panel table-panel" data-attendance-only>
         <div class="panel-heading row-heading">
           <div>
             <span class="panel-kicker">Campus detail</span>
-            <h2>Attendance Diagnostics</h2>
+            <h2>Attendance by Campus</h2>
           </div>
           <span class="panel-meta">Click a row to focus</span>
         </div>
@@ -153,10 +178,8 @@
               <tr>
                 <th>Campus</th>
                 <th>Latest</th>
-                <th>WoW</th>
-                <th>Vs baseline</th>
-                <th>10%+ swings</th>
-                <th>Avg swing</th>
+                <th>Since Last Sunday</th>
+                <th>Compared with Recent Sundays</th>
               </tr>
             </thead>
             <tbody id="campusTable"></tbody>
