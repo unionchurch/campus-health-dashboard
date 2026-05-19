@@ -636,14 +636,19 @@ figcaption,
 }
 
 .big-five-controls {
-  display: flex;
-  align-items: flex-end;
-  justify-content: flex-end;
-  gap: 14px;
+  display: grid;
+  width: min(520px, 100%);
+  grid-template-columns: minmax(0, 1.35fr) minmax(120px, 0.75fr);
+  gap: 12px;
+  align-items: end;
+}
+
+.big-five-controls .compact-field {
+  width: 100%;
 }
 
 .big-five-year-field {
-  min-width: 190px;
+  min-width: 0;
 }
 
 .health-heading {
@@ -1072,11 +1077,6 @@ tbody tr.active {
 
   .big-five-heading,
   .health-heading {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .big-five-controls {
     align-items: stretch;
     flex-direction: column;
   }
