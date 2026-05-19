@@ -274,8 +274,20 @@ select {
   grid-template-columns: minmax(0, 1.6fr) minmax(340px, 0.7fr);
 }
 
+.layout.attendance-stack {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.layout.attendance-stack .insights-panel .insight-list {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .grid-two {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.grid-two.single-panel {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .panel {
@@ -515,6 +527,49 @@ figcaption,
   padding: 0 16px 16px;
 }
 
+.attendance-insight-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  padding: 0 16px 16px;
+}
+
+.attendance-insight-column {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 10px;
+}
+
+.attendance-insight-column-heading {
+  display: grid;
+  min-height: 76px;
+  align-content: center;
+  justify-items: center;
+  gap: 3px;
+  padding: 4px 8px 12px;
+  border-bottom: 2px solid var(--line);
+  text-align: center;
+}
+
+.attendance-insight-column-heading strong {
+  font-family: var(--display-font);
+  font-size: 1rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.attendance-insight-column-heading > span:last-child {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 760;
+}
+
+.attendance-insight-list {
+  display: grid;
+  gap: 10px;
+}
+
 .insight {
   padding: 12px;
   background: #ffffff;
@@ -576,6 +631,26 @@ figcaption,
 
 .health-heading {
   align-items: center;
+}
+
+.health-header-actions {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 14px;
+}
+
+.health-header-actions .panel-meta {
+  padding-bottom: 10px;
+}
+
+.health-month-field {
+  min-width: 210px;
+}
+
+.health-insight-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  padding-bottom: 18px;
 }
 
 .compact-field {
@@ -800,9 +875,80 @@ figcaption,
   text-align: center;
 }
 
+.big-five-insight-sections {
+  display: grid;
+  gap: 16px;
+  padding: 0 16px 16px;
+}
+
+.big-five-insight-section {
+  border-top: 2px solid var(--line);
+}
+
+.big-five-insight-section summary {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 54px;
+  padding: 10px 46px;
+  color: var(--text);
+  cursor: pointer;
+  list-style: none;
+  text-align: center;
+}
+
+.big-five-insight-section summary::-webkit-details-marker {
+  display: none;
+}
+
+.big-five-insight-section summary::after {
+  content: "+";
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  background: var(--green);
+  border-radius: 50%;
+  color: #000000;
+  font-family: var(--display-font);
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.big-five-insight-section[open] summary::after {
+  content: "-";
+}
+
+.big-five-insight-heading {
+  display: grid;
+  gap: 3px;
+  justify-items: center;
+}
+
+.big-five-insight-heading strong {
+  font-family: var(--display-font);
+  font-size: 1rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.big-five-insight-heading > span:last-child {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 760;
+}
+
+.big-five-insight-section .insight-list {
+  padding: 0 0 14px;
+}
+
 .insight-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  padding: 0 16px 16px;
 }
 
 .table-wrap {
@@ -864,6 +1010,9 @@ tbody tr.active {
   .compact-kpis,
   .big-five-layout,
   .movement-summary,
+  .attendance-insight-columns,
+  .health-insight-grid,
+  .layout.attendance-stack .insights-panel .insight-list,
   .insight-grid {
     grid-template-columns: 1fr;
   }
@@ -908,6 +1057,16 @@ tbody tr.active {
   .health-heading {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .health-header-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .health-header-actions .panel-meta {
+    padding-bottom: 0;
+    text-align: left;
   }
 
   .chart {
