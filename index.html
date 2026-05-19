@@ -187,6 +187,48 @@
         </div>
       </section>
 
+      <section class="panel growth-history-panel metric-mode-panel is-hidden" data-metric-panel="growth-history">
+        <div class="panel-heading growth-history-heading">
+          <div>
+            <span class="panel-kicker">Campus Growth</span>
+            <h2>Campus Growth History</h2>
+          </div>
+          <span id="growthHistoryMeta" class="panel-meta"></span>
+        </div>
+        <div id="growthHistoryKpis" class="kpi-grid compact-kpis" aria-label="Campus growth history key metrics"></div>
+        <div class="big-five-layout">
+          <figure>
+            <figcaption>
+              <div>
+                <span class="panel-kicker">Long View</span>
+                <h2 id="growthHistoryTrendTitle">Attendance by Year</h2>
+              </div>
+              <span id="growthHistoryTrendMeta" class="panel-meta"></span>
+            </figcaption>
+            <div id="growthHistoryTrendChart" class="chart chart-bars" aria-label="Campus growth history trend chart"></div>
+          </figure>
+          <figure>
+            <figcaption>
+              <div>
+                <span class="panel-kicker">Current Year</span>
+                <h2>Campus Share</h2>
+              </div>
+              <span id="growthHistoryShareMeta" class="panel-meta"></span>
+            </figcaption>
+            <div id="growthHistoryShareChart" class="chart chart-bars" aria-label="Campus growth market share chart"></div>
+          </figure>
+        </div>
+        <div id="growthHistoryInsights" class="insight-list health-insight-grid"></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr id="growthHistoryTableHead"></tr>
+            </thead>
+            <tbody id="growthHistoryTable"></tbody>
+          </table>
+        </div>
+      </section>
+
       <section class="panel table-panel" data-attendance-only>
         <div class="panel-heading row-heading">
           <div>
