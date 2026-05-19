@@ -396,6 +396,12 @@ figcaption,
   font-size: 17px;
 }
 
+.chart-point-tooltip .tooltip-note {
+  fill: var(--surface);
+  font-size: 11px;
+  font-weight: 760;
+}
+
 .bar-row {
   display: grid;
   grid-template-columns: minmax(88px, 0.8fr) minmax(0, 2.2fr) 70px;
@@ -627,6 +633,17 @@ figcaption,
 
 .big-five-heading {
   align-items: center;
+}
+
+.big-five-controls {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 14px;
+}
+
+.big-five-year-field {
+  min-width: 190px;
 }
 
 .health-heading {
@@ -1055,6 +1072,11 @@ tbody tr.active {
 
   .big-five-heading,
   .health-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .big-five-controls {
     align-items: stretch;
     flex-direction: column;
   }

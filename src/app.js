@@ -8,6 +8,7 @@ const state = {
   metric: "attendance",
   showEvents: true,
   bigFiveEvent: null,
+  bigFiveYear: null,
   healthMonth: null,
 };
 
@@ -241,6 +242,7 @@ const els = {
   insights: document.querySelector("#insights"),
   campusTable: document.querySelector("#campusTable"),
   bigFiveEventSelect: document.querySelector("#bigFiveEventSelect"),
+  bigFiveYearSelect: document.querySelector("#bigFiveYearSelect"),
   bigFiveKpis: document.querySelector("#bigFiveKpis"),
   bigFiveTrendTitle: document.querySelector("#bigFiveTrendTitle"),
   bigFiveTrendMeta: document.querySelector("#bigFiveTrendMeta"),
@@ -431,6 +433,11 @@ function setupControls() {
   syncBigFiveOptions();
   els.bigFiveEventSelect.addEventListener("change", (event) => {
     state.bigFiveEvent = event.target.value;
+    state.bigFiveYear = null;
+    updateDashboard();
+  });
+  els.bigFiveYearSelect.addEventListener("change", (event) => {
+    state.bigFiveYear = Number(event.target.value) || null;
     updateDashboard();
   });
   syncHealthMonthOptions();
@@ -485,6 +492,51 @@ function syncBigFiveOptions() {
   const eventKeys = data.bigFive.events.map((event) => event.event);
   state.bigFiveEvent = eventKeys.includes(current) ? current : defaultBigFiveEvent();
   els.bigFiveEventSelect.value = state.bigFiveEvent;
+}
+
+function bigFiveArchiveRecords(records) {
+  return records.filter((record) => record.campaignTotal > 0);
+}
+
+function latestBigFiveYear(records) {
+  return bigFiveArchiveRecords(records).at(-1)?.year ?? null;
+}
+
+function selectedBigFiveYear(records) {
+  const years = bigFiveArchiveRecords(records).map((record) => record.year);
+  if (!years.length) return null;
+  if (!years.includes(state.bigFiveYear)) {
+    state.bigFiveYear = latestBigFiveYear(records);
+  }
+  return state.bigFiveYear;
+}
+
+function selectedBigFiveRecord(records) {
+  const year = selectedBigFiveYear(records);
+  return bigFiveArchiveRecords(records).find((record) => record.year === year) || null;
+}
+
+function syncBigFiveYearOptions(records) {
+  const usable = bigFiveArchiveRecords(records);
+  const latestYear = latestBigFiveYear(records);
+  const selectedYear = selectedBigFiveYear(records);
+  els.bigFiveYearSelect.innerHTML = "";
+  if (!usable.length) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "No years available";
+    els.bigFiveYearSelect.append(option);
+    els.bigFiveYearSelect.disabled = true;
+    return;
+  }
+  for (const record of usable.slice().reverse()) {
+    const option = document.createElement("option");
+    option.value = String(record.year);
+    option.textContent = record.year === latestYear ? `${record.year} (Latest)` : String(record.year);
+    els.bigFiveYearSelect.append(option);
+  }
+  if (selectedYear) els.bigFiveYearSelect.value = String(selectedYear);
+  els.bigFiveYearSelect.disabled = usable.length === 0;
 }
 
 function syncHealthMonthOptions() {
@@ -2461,8 +2513,9 @@ function renderBarList(container, rows, options = {}) {
   container.innerHTML = rows
     .map((row) => {
       const width = Math.max(3, (row.value / max) * 100);
+      const active = options.activeLabel !== undefined && String(row.label) === String(options.activeLabel);
       return `
-        <div class="bar-row">
+        <div class="bar-row ${active ? "active" : ""}">
           <div class="bar-label" title="${row.label}">${row.label}</div>
           <div class="bar-track"><div class="bar-fill ${options.fillClass || ""}" style="width:${width}%"></div></div>
           <div class="bar-value">${options.format ? options.format(row.value) : formatNumber(row.value)}</div>
@@ -2477,25 +2530,25 @@ function bigFiveEventLabel() {
 }
 
 function renderBigFiveKpis(records) {
-  const latest = records.filter((record) => record.campaignTotal > 0).at(-1);
+  const selected = selectedBigFiveRecord(records);
   const multiWeekEvent = isMultiWeekBigFiveEvent();
-  const hasPostWeeks = (latest?.postWeeks || []).length > 0;
-  const comparisonValue = multiWeekEvent ? latest?.yoyCampaignPct : latest?.yoyFeaturedPct;
+  const hasPostWeeks = (selected?.postWeeks || []).length > 0;
+  const comparisonValue = multiWeekEvent ? selected?.yoyCampaignPct : selected?.yoyFeaturedPct;
   const kpis = [];
 
   if (multiWeekEvent) {
     kpis.push({
       label: "Total attendance",
-      value: formatNumber(latest?.campaignTotal),
-      note: latest ? `${latest.year} ${bigFiveEventLabel()}` : "No event data",
+      value: formatNumber(selected?.campaignTotal),
+      note: selected ? `${selected.year} ${bigFiveEventLabel()}` : "No event data",
     });
   }
 
   kpis.push(
     {
       label: "Main Sunday",
-      value: formatNumber(latest?.featuredTotal),
-      note: latest?.featuredPhaseLabel || "No main Sunday yet",
+      value: formatNumber(selected?.featuredTotal),
+      note: selected?.featuredPhaseLabel || "No main Sunday yet",
     },
     {
       label: "Compared with last year",
@@ -2505,8 +2558,8 @@ function renderBigFiveKpis(records) {
     },
     {
       label: "Vs previous Sunday",
-      value: formatPct(latest?.liftPct),
-      valueClass: toneClass(latest?.liftPct),
+      value: formatPct(selected?.liftPct),
+      valueClass: toneClass(selected?.liftPct),
       note: "Main Sunday vs previous Sunday",
     },
   );
@@ -2515,10 +2568,10 @@ function renderBigFiveKpis(records) {
     kpis.push(
     {
         label: "Post Week 1 Hold",
-      value: formatPct(latest?.postRetentionPct),
+      value: formatPct(selected?.postRetentionPct),
       valueClass:
-        latest?.postRetentionPct !== null && latest?.postRetentionPct !== undefined
-          ? latest.postRetentionPct < 50
+        selected?.postRetentionPct !== null && selected?.postRetentionPct !== undefined
+          ? selected.postRetentionPct < 50
             ? "negative"
             : "positive"
           : "neutral",
@@ -2526,14 +2579,14 @@ function renderBigFiveKpis(records) {
     },
       {
         label: "4-Week Hold",
-        value: formatPct(latest?.postFourWeekRetentionPct),
+        value: formatPct(selected?.postFourWeekRetentionPct),
         valueClass:
-          latest?.postFourWeekRetentionPct !== null && latest?.postFourWeekRetentionPct !== undefined
-            ? latest.postFourWeekRetentionPct < 70
+          selected?.postFourWeekRetentionPct !== null && selected?.postFourWeekRetentionPct !== undefined
+            ? selected.postFourWeekRetentionPct < 70
               ? "warning"
               : "positive"
             : "neutral",
-        note: `${formatPct(latest?.postFourWeekGrowthPct)} vs pre-event Sundays`,
+        note: `${formatPct(selected?.postFourWeekGrowthPct)} vs pre-event Sundays`,
       },
     );
   }
@@ -2553,7 +2606,7 @@ function renderBigFiveKpis(records) {
 
 function renderBigFiveCharts(records) {
   const usable = records.filter((record) => record.campaignTotal > 0);
-  const latest = usable.at(-1);
+  const selected = selectedBigFiveRecord(records);
   const eventLabel = bigFiveEventLabel();
   const multiWeekEvent = isMultiWeekBigFiveEvent();
   els.bigFiveTrendTitle.textContent = multiWeekEvent
@@ -2568,15 +2621,16 @@ function renderBigFiveCharts(records) {
       label: String(record.year),
       value: multiWeekEvent ? record.campaignTotal : record.featuredTotal,
     })),
+    { activeLabel: selected?.year },
   );
 
-  els.bigFivePhaseTitle.textContent = latest ? `${latest.year} Event Weeks` : "Event Weeks";
-  els.bigFivePhaseMeta.textContent = latest
-    ? `${shortDate(latest.startDate)} - ${shortDate(latest.endDate)}`
+  els.bigFivePhaseTitle.textContent = selected ? `${selected.year} Event Weeks` : "Event Weeks";
+  els.bigFivePhaseMeta.textContent = selected
+    ? `${shortDate(selected.startDate)} - ${shortDate(selected.endDate)}`
     : "";
   renderBarList(
     els.bigFivePhaseChart,
-    (latest?.phaseTotals || []).map((phase) => ({
+    (selected?.phaseTotals || []).map((phase) => ({
       label: phase.phaseLabel,
       value: phase.total,
     })),
@@ -2678,7 +2732,7 @@ function renderBigFiveInsightSections(insights) {
 }
 
 function renderBigFiveInsights(records) {
-  const latest = records.filter((record) => record.campaignTotal > 0).at(-1);
+  const latest = selectedBigFiveRecord(records);
   if (!latest) {
     els.bigFiveInsights.innerHTML = "";
     return;
@@ -2696,14 +2750,21 @@ function renderBigFiveInsights(records) {
   const biggestPhase = latest.phaseTotals
     .filter((phase) => phase.total > 0)
     .sort((a, b) => b.total - a.total)[0];
-  const recentRecords = records.filter((record) => record.campaignTotal > 0).slice(-3);
+  const recentRecords = records
+    .filter((record) => record.campaignTotal > 0 && record.year <= latest.year)
+    .slice(-3);
   const avgLift = averageNumbers(recentRecords.map((record) => record.liftPct));
   const avgRetention = averageNumbers(recentRecords.map((record) => record.postRetentionPct));
   const campusRetentionRows = (latest.campusSummaries || []).filter((row) => isFiniteNumber(row.postRetentionPct));
   const lowRetentionCampus = campusRetentionRows.slice().sort((a, b) => a.postRetentionPct - b.postRetentionPct)[0];
   const strongRetentionCampus = campusRetentionRows.slice().sort((a, b) => b.postRetentionPct - a.postRetentionPct)[0];
   const bestBooster = records
-    .filter((record) => isFiniteNumber(record.liftPct) && isFiniteNumber(record.postRetentionPct))
+    .filter(
+      (record) =>
+        record.year <= latest.year &&
+        isFiniteNumber(record.liftPct) &&
+        isFiniteNumber(record.postRetentionPct),
+    )
     .map((record) => ({
       ...record,
       boosterScore: Math.max(0, record.liftPct) * 0.35 + record.postRetentionPct,
@@ -2854,6 +2915,7 @@ function renderBigFiveInsights(records) {
 function renderBigFiveTable(records) {
   const multiWeekEvent = isMultiWeekBigFiveEvent();
   const hasPostWeeks = records.some((record) => (record.postWeeks || []).length > 0);
+  const selectedYear = selectedBigFiveYear(records);
   const headers = [
     "Event",
     "Year",
@@ -2870,7 +2932,7 @@ function renderBigFiveTable(records) {
     .reverse()
     .map(
       (record) => `
-        <tr>
+        <tr data-big-five-year="${record.year}" class="${record.year === selectedYear ? "active" : ""}">
           <td>${record.eventLabel}</td>
           <td>${record.year}</td>
           ${multiWeekEvent ? `<td>${formatNumber(record.campaignTotal)}</td>` : ""}
@@ -2892,11 +2954,19 @@ function renderBigFiveTable(records) {
       `,
     )
     .join("");
+
+  for (const row of els.bigFiveTable.querySelectorAll("[data-big-five-year]")) {
+    row.addEventListener("click", () => {
+      state.bigFiveYear = Number(row.dataset.bigFiveYear) || null;
+      updateDashboard();
+    });
+  }
 }
 
 function renderBigFive() {
   const records = summarizeBigFiveEvent();
   els.bigFiveEventSelect.value = state.bigFiveEvent;
+  syncBigFiveYearOptions(records);
   renderBigFiveKpis(records);
   renderBigFiveCharts(records);
   renderBigFiveInsights(records);
