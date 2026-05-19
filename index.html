@@ -41,7 +41,7 @@
 
       <section id="kpis" class="kpi-grid metric-mode-panel" data-metric-panel="standard" aria-label="Key metrics"></section>
 
-      <section class="layout metric-mode-panel" data-metric-panel="standard">
+      <section id="trendInsightLayout" class="layout metric-mode-panel" data-metric-panel="standard">
         <figure class="panel chart-panel">
           <figcaption>
             <div>
@@ -62,7 +62,7 @@
         </aside>
       </section>
 
-      <section class="grid-two metric-mode-panel" data-metric-panel="standard">
+      <section id="comparisonGrid" class="grid-two metric-mode-panel" data-metric-panel="standard">
         <figure class="panel">
           <figcaption>
             <div>
@@ -74,26 +74,43 @@
           <div id="barChart" class="chart chart-bars" aria-label="Campus comparison chart"></div>
         </figure>
 
-        <figure class="panel">
+        <figure class="panel attendance-movement-panel" data-attendance-only>
           <figcaption>
             <div>
               <span class="panel-kicker">Attendance Movement</span>
               <h2>Big Sunday-to-Sunday Changes</h2>
             </div>
-            <span class="panel-meta">YTD, 10%+ from previous Sunday</span>
+            <span id="volatilityMeta" class="panel-meta">YTD, 10%+ from previous Sunday</span>
           </figcaption>
           <div id="volatilityChart" class="chart chart-volatility" aria-label="Attendance movement chart"></div>
         </figure>
       </section>
 
       <section class="health-mode metric-mode-panel is-hidden" data-metric-panel="health">
+        <section class="panel health-takeaways-panel">
+          <div class="panel-heading health-heading">
+            <div>
+              <span class="panel-kicker">Monthly Takeaways</span>
+              <h2>Health Readout</h2>
+            </div>
+            <div class="health-header-actions">
+              <label class="field compact-field health-month-field">
+                <span>Month Archive</span>
+                <select id="healthMonthSelect"></select>
+              </label>
+              <span id="healthMonthMeta" class="panel-meta"></span>
+            </div>
+          </div>
+          <div id="healthInsights" class="insight-list health-insight-grid"></div>
+        </section>
+
         <section class="panel health-panel">
           <div class="panel-heading health-heading">
             <div>
               <span class="panel-kicker">Monthly Health</span>
               <h2>Campus Health Report</h2>
             </div>
-            <span id="healthMonthMeta" class="panel-meta"></span>
+            <span id="healthReportMeta" class="panel-meta"></span>
           </div>
           <div class="table-wrap health-table-wrap">
             <table class="health-report-table">
@@ -153,7 +170,7 @@
             <div id="bigFivePhaseChart" class="chart chart-bars" aria-label="Big 5 phase chart"></div>
           </figure>
         </div>
-        <div id="bigFiveInsights" class="insight-list insight-grid"></div>
+        <div id="bigFiveInsights" class="big-five-insight-sections"></div>
         <div class="table-wrap">
           <table>
             <thead>
