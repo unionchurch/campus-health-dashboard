@@ -35,6 +35,12 @@ export const dashboardData = {
     pivot: [],
     insights: [],
   },
+  dreamTeamDetail: [],
+  campusGrowthHistory: {
+    years: [],
+    rows: [],
+    notes: [],
+  },
   health: {
     targets: [],
     groupConfig: [],
