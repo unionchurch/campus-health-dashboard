@@ -819,7 +819,7 @@ function extractHealthTargets(range) {
       targetType: rowText(row, ["target_type", "type"]),
       optimalMin: rowNumber(row, ["optimal_min", "min"]),
       optimalMax: rowNumber(row, ["optimal_max", "max"]),
-      unit: rowText(row, ["unit"]),
+      unit: rowText(row, ["unit", "format"]),
       direction: rowText(row, ["direction"]),
       notes: rowText(row, ["notes"]),
     }))

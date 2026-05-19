@@ -26,7 +26,13 @@ let metricLabels = getMetricLabels();
 
 const healthTargetDefaults = {
   attendance: { label: "Attendance", unit: "count" },
-  attendanceYoy: { label: "Attendance vs Last Year", unit: "%", optimalMin: 0, direction: "higher" },
+  attendanceYoy: {
+    label: "Attendance vs Last Year",
+    unit: "%",
+    optimalMin: 7,
+    optimalMax: 10,
+    direction: "range",
+  },
   kidsPct: { label: "Kids % of Attendance", unit: "%", optimalMin: 13, direction: "higher" },
   growthTrackPct: {
     label: "Growth Track %",
@@ -74,7 +80,6 @@ const healthTargetDefaults = {
 
 const healthOptimalLabels = {
   attendance: "Avg",
-  attendanceYoy: "Positive",
   groupGoalPct: ">=100%",
   groupAttendancePct: "Higher",
   heartSoulTeamLeadPct: "If included",
@@ -769,6 +774,31 @@ function renderKpis(points) {
     .join("");
 }
 
+function chartNoteLines(note, maxChars = 28, maxLines = 2) {
+  const words = String(note || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean);
+  const lines = [];
+
+  for (const word of words) {
+    const current = lines.at(-1) || "";
+    if (!current) {
+      lines.push(word);
+    } else if (`${current} ${word}`.length <= maxChars) {
+      lines[lines.length - 1] = `${current} ${word}`;
+    } else if (lines.length < maxLines) {
+      lines.push(word);
+    } else {
+      lines[lines.length - 1] = `${current}...`;
+      break;
+    }
+  }
+
+  return lines.slice(0, maxLines);
+}
+
 function renderLineChart(points) {
   if (!points.length) {
     els.lineChart.innerHTML = `<div class="empty">No points available.</div>`;
@@ -794,7 +824,7 @@ function renderLineChart(points) {
   } Z`;
   const gridValues = Array.from({ length: 5 }, (_, index) => yMin + ((yMax - yMin) / 4) * index);
   const labelIndexes = new Set([0, Math.floor((points.length - 1) / 2), points.length - 1]);
-  const tooltipWidth = 156;
+  const tooltipWidth = 202;
 
   const svg = `
     <svg viewBox="0 0 ${width} ${height}" role="img">
@@ -811,19 +841,28 @@ function renderLineChart(points) {
       <path class="series-line" d="${linePath}"></path>
       ${points
         .map((point, index) => {
-          const isEvent = point.eventType !== "normal";
+          const noteLines = chartNoteLines(point.event);
+          const hasNote = noteLines.length > 0;
+          const isEvent = hasNote || point.eventType !== "normal";
           const cx = x(index);
           const cy = y(point.value);
+          const tooltipHeight = hasNote ? 78 : 50;
           const tooltipX = Math.min(Math.max(cx - tooltipWidth / 2, margin.left - 24), width - margin.right - tooltipWidth + 24);
-          const tooltipY = Math.max(cy - 68, margin.top - 10);
+          const tooltipY = Math.max(cy - tooltipHeight - 18, margin.top - 10);
           return `
             <g class="chart-point-tooltip" data-tooltip-index="${index}" transform="translate(${tooltipX} ${tooltipY})">
-              <rect width="${tooltipWidth}" height="50" rx="7"></rect>
+              <rect width="${tooltipWidth}" height="${tooltipHeight}" rx="7"></rect>
               <text x="12" y="20">${escapeHtml(shortDate(point.date))}</text>
               <text class="tooltip-number" x="12" y="38">${escapeHtml(formatNumber(point.value))}</text>
+              ${noteLines
+                .map(
+                  (line, lineIndex) =>
+                    `<text class="tooltip-note" x="12" y="${58 + lineIndex * 14}">${escapeHtml(line)}</text>`,
+                )
+                .join("")}
             </g>
             <circle class="point ${isEvent ? "event" : ""}" data-point-index="${index}" tabindex="0" aria-label="${escapeHtml(
-              `${shortDate(point.date)} ${formatNumber(point.value)}`,
+              `${shortDate(point.date)} ${formatNumber(point.value)}${point.event ? ` ${point.event}` : ""}`,
             )}" cx="${cx}" cy="${cy}" r="${
               isEvent ? 5 : 4
             }">
@@ -1639,6 +1678,20 @@ function monthlyPercentOfAttendance(metricKey, dates, campuses) {
   return averageNumbers(dates.map((date) => weeklyPercentOfAttendance(metricKey, date, campuses)));
 }
 
+function normalizeHealthTarget(target) {
+  const output = { ...target };
+  const unitText = String(output.unit || "").toLowerCase();
+  const isPercentTarget = output.unit === "%" || unitText.includes("percent");
+  for (const key of ["optimalMin", "optimalMax"]) {
+    if (isPercentTarget && output[key] > 0 && output[key] <= 1) {
+      output[key] *= 100;
+    }
+  }
+  if (unitText.includes("percent")) output.unit = "%";
+  if (output.direction === "in_range") output.direction = "range";
+  return output;
+}
+
 function healthTarget(key) {
   const normalized = key.toLowerCase().replace(/[^a-z0-9]/g, "");
   const workbookTarget = (data.health?.targets || []).find(
@@ -1647,7 +1700,7 @@ function healthTarget(key) {
   const override = Object.fromEntries(
     Object.entries(workbookTarget || {}).filter(([, value]) => value !== null && value !== undefined && value !== ""),
   );
-  return { ...(healthTargetDefaults[key] || {}), ...override };
+  return normalizeHealthTarget({ ...(healthTargetDefaults[key] || {}), ...override });
 }
 
 function targetLabel(key) {
