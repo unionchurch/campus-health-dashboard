@@ -41,6 +41,7 @@ export const dashboardData = {
     groupAttendance: [],
     heartSoulRows: [],
     leadershipRows: [],
+    activeDreamTeam: [],
     months: [],
   },
   insights: [],

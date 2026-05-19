@@ -8,6 +8,7 @@ const state = {
   metric: "attendance",
   showEvents: true,
   bigFiveEvent: null,
+  healthMonth: null,
 };
 
 const metricOrder = [
@@ -43,7 +44,12 @@ const healthTargetDefaults = {
     optimalMax: 4,
     direction: "range",
   },
-  dreamTeamPct: { label: "Dream Team %", unit: "%", optimalMin: 33, direction: "higher" },
+  dreamTeamPct: {
+    label: "Active Dream Team % of Attendance",
+    unit: "%",
+    optimalMin: 33,
+    direction: "higher",
+  },
   groupsPct: {
     label: "Total Groups %",
     unit: "%",
@@ -219,10 +225,13 @@ const els = {
   kpis: document.querySelector("#kpis"),
   trendTitle: document.querySelector("#trendTitle"),
   trendMeta: document.querySelector("#trendMeta"),
+  trendInsightLayout: document.querySelector("#trendInsightLayout"),
   lineChart: document.querySelector("#lineChart"),
   barTitle: document.querySelector("#barTitle"),
   barMeta: document.querySelector("#barMeta"),
   barChart: document.querySelector("#barChart"),
+  comparisonGrid: document.querySelector("#comparisonGrid"),
+  volatilityMeta: document.querySelector("#volatilityMeta"),
   volatilityChart: document.querySelector("#volatilityChart"),
   insights: document.querySelector("#insights"),
   campusTable: document.querySelector("#campusTable"),
@@ -237,7 +246,10 @@ const els = {
   bigFiveInsights: document.querySelector("#bigFiveInsights"),
   bigFiveTableHead: document.querySelector("#bigFiveTableHead"),
   bigFiveTable: document.querySelector("#bigFiveTable"),
+  healthMonthSelect: document.querySelector("#healthMonthSelect"),
   healthMonthMeta: document.querySelector("#healthMonthMeta"),
+  healthReportMeta: document.querySelector("#healthReportMeta"),
+  healthInsights: document.querySelector("#healthInsights"),
   healthTableHead: document.querySelector("#healthTableHead"),
   healthTableBody: document.querySelector("#healthTableBody"),
   leadershipVacancyChart: document.querySelector("#leadershipVacancyChart"),
@@ -416,6 +428,11 @@ function setupControls() {
     state.bigFiveEvent = event.target.value;
     updateDashboard();
   });
+  syncHealthMonthOptions();
+  els.healthMonthSelect.addEventListener("change", (event) => {
+    state.healthMonth = event.target.value;
+    updateDashboard();
+  });
 
   liveExcel = setupLiveExcel({
     onData: applyDashboardData,
@@ -465,6 +482,22 @@ function syncBigFiveOptions() {
   els.bigFiveEventSelect.value = state.bigFiveEvent;
 }
 
+function syncHealthMonthOptions() {
+  const months = healthArchiveMonths();
+  const latest = latestCompletedHealthMonth();
+  const current = state.healthMonth;
+  els.healthMonthSelect.innerHTML = "";
+  for (const month of months.slice().reverse()) {
+    const option = document.createElement("option");
+    option.value = month;
+    option.textContent = month === latest ? `${formatMonth(month)} (Latest)` : formatMonth(month);
+    els.healthMonthSelect.append(option);
+  }
+  state.healthMonth = months.includes(current) ? current : latest;
+  if (state.healthMonth) els.healthMonthSelect.value = state.healthMonth;
+  els.healthMonthSelect.disabled = months.length === 0;
+}
+
 function updateSourceLabels() {
   els.latestDate.textContent = data.source.latestAttendanceDate
     ? `Latest: ${formatDate(data.source.latestAttendanceDate)}`
@@ -501,6 +534,7 @@ function applyDashboardData(nextData) {
   updateSourceLabels();
   syncCampusOptions();
   syncBigFiveOptions();
+  syncHealthMonthOptions();
   updateDashboard();
 }
 
@@ -872,10 +906,25 @@ function renderBars() {
 }
 
 function renderVolatility() {
-  const rows = data.volatility.map(movementStats);
+  const allRows = data.volatility.map(movementStats);
+  const rows =
+    state.campus === "All Campuses"
+      ? allRows
+      : allRows.filter((row) => row.campus === state.campus);
   if (!rows.length) {
     els.volatilityChart.innerHTML = `<div class="empty">Connect Excel to load attendance movement.</div>`;
+    if (els.volatilityMeta) {
+      els.volatilityMeta.textContent =
+        state.campus === "All Campuses" ? "YTD, 10%+ from previous Sunday" : `${state.campus} only`;
+    }
     return;
+  }
+
+  if (els.volatilityMeta) {
+    els.volatilityMeta.textContent =
+      state.campus === "All Campuses"
+        ? "All campuses · YTD, 10%+ from previous Sunday"
+        : `${state.campus} · YTD, 10%+ from previous Sunday`;
   }
 
   const totals = rows.reduce(
@@ -1133,26 +1182,262 @@ function growthLeverInsights() {
   ];
 }
 
+function gradeAttendanceTrend(change) {
+  if (!isFiniteNumber(change)) return "info";
+  if (change <= -10) return "critical";
+  if (change < 0) return "warning";
+  return "info";
+}
+
+function attendanceTrendVerb(change) {
+  if (!isFiniteNumber(change)) return "changed";
+  if (change < 0) return "dipped";
+  if (change > 0) return "grew";
+  return "was flat";
+}
+
+function formatTrendMove(change) {
+  if (!isFiniteNumber(change)) return "--";
+  if (change < 0) return `${Math.abs(change).toFixed(1)}%`;
+  return formatPct(change);
+}
+
+function campusMovementRows() {
+  return data.campuses
+    .map((campus) => {
+      const points = getMetricPoints("attendance", campus);
+      const latest = points.at(-1);
+      const previous = points.at(-2);
+      const changePct = latest && previous ? pctChange(latest.value, previous.value) : null;
+      return {
+        campus,
+        latest,
+        previous,
+        changePct,
+      };
+    })
+    .filter((row) => row.latest && row.previous && isFiniteNumber(row.changePct));
+}
+
+function movementCampusList(rows, limit = 3) {
+  return rows
+    .slice(0, limit)
+    .map((row) => `${row.campus} (${formatPct(row.changePct)})`)
+    .join(", ");
+}
+
+function allCampusAttendanceTrendInsights() {
+  const points = getMetricPoints("attendance", "All Campuses");
+  const latest = points.at(-1);
+  const previous = points.at(-2);
+  if (!latest || !previous) return [];
+
+  const change = pctChange(latest.value, previous.value);
+  const verb = attendanceTrendVerb(change);
+  const trendSeverity = gradeAttendanceTrend(change);
+  const movementRows = campusMovementRows();
+  const downRows = movementRows.filter((row) => row.changePct < 0).sort((a, b) => a.changePct - b.changePct);
+  const upRows = movementRows.filter((row) => row.changePct > 0).sort((a, b) => b.changePct - a.changePct);
+  const flatRows = movementRows.filter((row) => row.changePct === 0);
+  const totalCampusCount = movementRows.length;
+
+  const insights = [
+    {
+      title:
+        change === 0
+          ? "Attendance was flat from the previous Sunday"
+          : `Attendance ${verb} ${formatTrendMove(change)} from the previous Sunday`,
+      body:
+        change < 0
+          ? `Total in-person attendance was ${formatNumber(latest.value)} on ${shortDate(
+              latest.date,
+            )}, down from ${formatNumber(previous.value)} on ${shortDate(
+              previous.date,
+            )}. Even a modest negative move is worth naming so it does not read as steady.`
+          : `Total in-person attendance was ${formatNumber(latest.value)} on ${shortDate(
+              latest.date,
+            )}, compared with ${formatNumber(previous.value)} on ${shortDate(previous.date)}.`,
+      severity: trendSeverity,
+      category: "pulse",
+    },
+  ];
+
+  if (!totalCampusCount) return insights;
+
+  if (downRows.length === totalCampusCount) {
+    insights.push({
+      title: "Every campus dipped from the previous Sunday",
+      body: `${downRows.length} of ${totalCampusCount} campuses were down. The largest dips were ${movementCampusList(
+        downRows,
+      )}. Treat this as a system-wide weekend pattern before isolating one campus.`,
+      severity: downRows.some((row) => row.changePct <= -10) ? "critical" : "warning",
+      category: "pulse",
+    });
+  } else if (downRows.length >= 2 && upRows.length === 1 && flatRows.length === 0) {
+    const exception = upRows[0];
+    insights.push({
+      title: `Most campuses dipped; ${exception.campus} was the exception`,
+      body: `${downRows.length} of ${totalCampusCount} campuses were down from the previous Sunday. ${exception.campus} was up ${formatPct(
+        exception.changePct,
+      )}, so compare what was different there before treating the dip as unavoidable.`,
+      severity: downRows.some((row) => row.changePct <= -10) ? "critical" : "warning",
+      category: "pulse",
+    });
+  } else if (downRows.length > upRows.length) {
+    insights.push({
+      title: `${downRows.length} of ${totalCampusCount} campuses dipped`,
+      body: `Down campuses: ${movementCampusList(downRows)}. Up campuses: ${
+        upRows.length ? movementCampusList(upRows) : "none"
+      }. This points to a broad weekend pattern with a few campus-specific exceptions.`,
+      severity: downRows.length >= Math.ceil(totalCampusCount * 0.75) ? "critical" : "warning",
+      category: "pulse",
+    });
+  } else if (upRows.length === totalCampusCount) {
+    insights.push({
+      title: "Every campus grew from the previous Sunday",
+      body: `${upRows.length} of ${totalCampusCount} campuses were up. The strongest gains were ${movementCampusList(
+        upRows,
+      )}. Capture what worked while the weekend is still fresh.`,
+      severity: "info",
+      category: "pulse",
+    });
+  } else if (upRows.length > downRows.length) {
+    insights.push({
+      title: `${upRows.length} of ${totalCampusCount} campuses grew`,
+      body: `Up campuses: ${movementCampusList(upRows)}. Down campuses: ${
+        downRows.length ? movementCampusList(downRows) : "none"
+      }. Look for shared drivers among the campuses that moved up.`,
+      severity: "info",
+      category: "pulse",
+    });
+  } else {
+    insights.push({
+      title: "Campus movement was mixed",
+      body: `${upRows.length} campuses were up, ${downRows.length} were down, and ${flatRows.length} were flat. Up campuses: ${
+        upRows.length ? movementCampusList(upRows) : "none"
+      }. Down campuses: ${downRows.length ? movementCampusList(downRows) : "none"}.`,
+      severity: downRows.length ? "warning" : "info",
+      category: "pulse",
+    });
+  }
+
+  return insights;
+}
+
 function selectedCampusInsights() {
+  const points = getMetricPoints("attendance", state.campus);
+  const latest = points.at(-1);
+  const previous = points.at(-2);
   const stat = statForCampus(state.campus);
-  if (!stat) return [];
-  const weekTone = Math.abs(stat.weekChangePct || 0) >= 10 ? "warning" : "info";
-  const baselineTone = (stat.vsPrevious4Pct || 0) < -5 ? "warning" : "info";
+  if (!stat || !latest) return [];
+  const weekChange = latest && previous ? pctChange(latest.value, previous.value) : stat.weekChangePct;
+  const weekTone = gradeAttendanceTrend(weekChange);
+  const baselineTone =
+    (stat.vsPrevious4Pct || 0) <= -10 ? "critical" : (stat.vsPrevious4Pct || 0) < 0 ? "warning" : "info";
 
   return [
     {
-      title: `${state.campus} this Sunday`,
-      body: `${state.campus} reported ${formatNumber(stat.latest)} on ${shortDate(
-        stat.latestDate,
-      )}, ${formatPct(stat.weekChangePct)} compared with ${shortDate(stat.previousDate)}.`,
+      title: `${state.campus} attendance ${attendanceTrendVerb(weekChange)} this Sunday`,
+      body: previous
+        ? `${state.campus} reported ${formatNumber(latest.value)} on ${shortDate(
+            latest.date,
+          )}, ${formatPct(weekChange)} compared with ${formatNumber(previous.value)} on ${shortDate(previous.date)}.`
+        : `${state.campus} reported ${formatNumber(latest.value)} on ${shortDate(latest.date)}.`,
       severity: weekTone,
+      category: "pulse",
     },
     {
-      title: "Compared with recent regular Sundays",
+      title:
+        (stat.vsPrevious4Pct || 0) < 0
+          ? "Below recent regular Sundays"
+          : "Compared with recent regular Sundays",
       body: `${state.campus} is ${formatPct(stat.vsPrevious4Pct)} compared with its previous four regular Sundays.`,
       severity: baselineTone,
+      category: "pulse",
     },
   ];
+}
+
+const attendanceInsightColumns = [
+  {
+    key: "pulse",
+    kicker: "Weekend Pulse",
+    title: "What changed",
+  },
+  {
+    key: "focus",
+    kicker: "Campus Focus",
+    title: "Where to lean in",
+  },
+  {
+    key: "levers",
+    kicker: "Growth Levers",
+    title: "What to strengthen",
+  },
+];
+
+function attendanceInsightColumnKey(insight) {
+  if (insight.category) return insight.category;
+  const title = normalizeText(insight.title);
+  if (
+    title.includes("growthlever") ||
+    title.includes("5keys") ||
+    title.includes("barrier") ||
+    title.includes("target") ||
+    title.includes("emphasis")
+  ) {
+    return "levers";
+  }
+  if (
+    title.includes("gap") ||
+    title.includes("below") ||
+    title.includes("campus") ||
+    title.includes("opportunity") ||
+    title.includes("carries") ||
+    title.includes("clearest")
+  ) {
+    return "focus";
+  }
+  return "pulse";
+}
+
+function renderAttendanceInsights(insights) {
+  const grouped = new Map(attendanceInsightColumns.map((column) => [column.key, []]));
+  for (const insight of insights) {
+    const key = grouped.has(attendanceInsightColumnKey(insight))
+      ? attendanceInsightColumnKey(insight)
+      : "pulse";
+    grouped.get(key).push(insight);
+  }
+
+  els.insights.className = "attendance-insight-columns";
+  els.insights.innerHTML = attendanceInsightColumns
+    .filter((column) => grouped.get(column.key)?.length)
+    .map((column) => {
+      const columnInsights = grouped.get(column.key);
+      return `
+        <section class="attendance-insight-column">
+          <div class="attendance-insight-column-heading">
+            <span class="panel-kicker">${column.kicker}</span>
+            <strong>${column.title}</strong>
+            <span>${columnInsights.length} ${columnInsights.length === 1 ? "takeaway" : "takeaways"}</span>
+          </div>
+          <div class="attendance-insight-list">
+            ${columnInsights
+              .map(
+                (insight) => `
+                  <article class="insight ${insight.severity || "info"}">
+                    <h3 class="insight-title">${insight.title}</h3>
+                    <p class="insight-body">${insight.body}</p>
+                  </article>
+                `,
+              )
+              .join("")}
+          </div>
+        </section>
+      `;
+    })
+    .join("");
 }
 
 function renderInsights() {
@@ -1161,7 +1446,7 @@ function renderInsights() {
       ? []
       : state.campus === "All Campuses"
       ? data.insights
-          .filter((insight) => !["volatility", "event"].includes(insight.type))
+          .filter((insight) => !["trend", "volatility", "event"].includes(insight.type))
           .map((insight) => ({
             title: insight.title,
             body: insight.body,
@@ -1169,12 +1454,19 @@ function renderInsights() {
           }))
       : selectedCampusInsights();
   const insights = [
+    ...(state.metric === "attendance" && state.campus === "All Campuses" ? allCampusAttendanceTrendInsights() : []),
     ...baseInsights,
     ...(state.metric === "attendance" ? attendanceOpportunityInsights() : []),
     ...metricOpportunityInsights(),
     ...(state.metric === "attendance" ? growthLeverInsights() : []),
   ];
 
+  if (state.metric === "attendance") {
+    renderAttendanceInsights(insights);
+    return;
+  }
+
+  els.insights.className = "insight-list";
   els.insights.innerHTML = insights
     .map(
       (insight) => `
@@ -1235,10 +1527,29 @@ function currentMonthKey() {
 }
 
 function latestCompletedHealthMonth() {
-  const months = healthMonths();
+  const months = healthArchiveMonths();
   if (!months.length) return null;
+  return months.at(-1);
+}
+
+function selectedHealthMonth() {
+  const months = healthArchiveMonths();
+  if (!months.length) return null;
+  if (!months.includes(state.healthMonth)) {
+    state.healthMonth = latestCompletedHealthMonth();
+  }
+  return state.healthMonth;
+}
+
+function previousHealthMonth(month) {
+  if (!month) return null;
+  return healthArchiveMonths().filter((candidate) => candidate < month).at(-1) || null;
+}
+
+function healthArchiveMonths() {
+  const months = healthMonths();
   const completed = months.filter((month) => month < currentMonthKey());
-  return completed.at(-1) || months.at(-1);
+  return completed.length ? completed : months;
 }
 
 function sameMonth(iso, month) {
@@ -1440,6 +1751,17 @@ function groupConfigFor(campuses, month) {
   };
 }
 
+function activeDreamTeamForMonth(campuses, month, attendanceAvg) {
+  const rows = (data.health?.activeDreamTeam || []).filter(
+    (row) => campuses.includes(row.campus) && row.month === month,
+  );
+  const total = sumNumbers(rows.map((row) => row.activeDreamTeam));
+  return {
+    total,
+    pct: total !== null && attendanceAvg ? (total / attendanceAvg) * 100 : null,
+  };
+}
+
 function groupAttendanceByWeek(campuses, month) {
   const byWeek = new Map();
   for (const row of data.health?.groupAttendance || []) {
@@ -1499,9 +1821,9 @@ function leadershipSummary(campuses, month) {
   };
 }
 
-function buildHealthReport() {
+function buildHealthReport(selectedMonth = selectedHealthMonth()) {
   const campuses = selectedHealthCampuses();
-  const month = latestCompletedHealthMonth();
+  const month = selectedMonth;
   const dates = month ? attendanceDatesForMonth(campuses, month) : [];
   const attendanceValues = dates.map((date) => metricValueOnDate("attendance", campuses, date));
   const attendanceAvg = averageNumbers(attendanceValues);
@@ -1512,6 +1834,7 @@ function buildHealthReport() {
   });
   const attendanceYoy = averageNumbers(attendanceYoyValues);
   const config = groupConfigFor(campuses, month);
+  const activeDreamTeam = activeDreamTeamForMonth(campuses, month, attendanceAvg);
   const groupWeeks = groupAttendanceByWeek(campuses, month);
   const leadership = leadershipSummary(campuses, month);
 
@@ -1572,7 +1895,7 @@ function buildHealthReport() {
     ratioRow("baptismPct", "baptism", "Baptism sheet"),
     ratioRow("salvationsPct", "salvations"),
     ratioRow("firstTimersPct", "firstTimers"),
-    ratioRow("dreamTeamPct", "dreamTeam"),
+    row("dreamTeamPct", dates.map(() => null), activeDreamTeam.pct, "pct", "Active Dream Team"),
     row(
       "groupsPct",
       dates.map(() => null),
@@ -1617,6 +1940,209 @@ function buildHealthReport() {
   ];
 
   return { campuses, month, dates, rows, groupWeeks, leadership };
+}
+
+function healthRowMap(report) {
+  return new Map((report?.rows || []).map((row) => [row.key, row]));
+}
+
+function healthNumericValue(row) {
+  if (!row) return null;
+  if (row.format === "attendanceVsSignups") return row.monthValue?.pct ?? null;
+  return typeof row.monthValue === "number" && Number.isFinite(row.monthValue) ? row.monthValue : null;
+}
+
+function healthInsightSeverity(tone) {
+  if (tone === "critical" || tone === "urgent") return "critical";
+  if (tone === "watch" || tone === "negative") return "warning";
+  return "info";
+}
+
+function formatHealthValueForInsight(row) {
+  return row ? formatHealthCell(row.format, row.monthValue) : "--";
+}
+
+function healthStatusCounts(report) {
+  return report.rows
+    .filter((row) => row.status.grade !== null)
+    .reduce(
+      (counts, row) => {
+        counts.total += 1;
+        if (row.status.tone === "positive") counts.onTrack += 1;
+        if (row.status.tone === "watch") counts.watch += 1;
+        if (row.status.tone === "urgent") counts.urgent += 1;
+        if (row.status.tone === "critical") counts.critical += 1;
+        return counts;
+      },
+      { total: 0, onTrack: 0, watch: 0, urgent: 0, critical: 0 },
+    );
+}
+
+function statusChangeInsights(report, previousReport) {
+  if (!previousReport) return [];
+  const previousRows = healthRowMap(previousReport);
+  const changes = report.rows
+    .map((row) => {
+      const previous = previousRows.get(row.key);
+      if (row.status.grade === null || previous?.status.grade === null || previous?.status.grade === undefined) {
+        return null;
+      }
+      return {
+        row,
+        previous,
+        gradeChange: row.status.grade - previous.status.grade,
+      };
+    })
+    .filter(Boolean)
+    .filter((item) => item.gradeChange !== 0);
+
+  const worse = changes.filter((item) => item.gradeChange > 0).sort((a, b) => b.gradeChange - a.gradeChange)[0];
+  const better = changes.filter((item) => item.gradeChange < 0).sort((a, b) => a.gradeChange - b.gradeChange)[0];
+
+  if (worse) {
+    return [
+      {
+        title: `${worse.row.label} needs attention since last month`,
+        body: `The grade moved from ${worse.previous.status.grade} to ${worse.row.status.grade}. ${formatMonth(
+          report.month,
+        )} is ${formatHealthValueForInsight(worse.row)} against an optimal of ${worse.row.optimal}.`,
+        severity: healthInsightSeverity(worse.row.status.tone),
+      },
+    ];
+  }
+
+  if (better) {
+    return [
+      {
+        title: `${better.row.label} improved since last month`,
+        body: `The grade moved from ${better.previous.status.grade} to ${better.row.status.grade}. ${formatMonth(
+          report.month,
+        )} is ${formatHealthValueForInsight(better.row)} against an optimal of ${better.row.optimal}.`,
+        severity: "info",
+      },
+    ];
+  }
+
+  return [
+    {
+      title: "Health grades held steady from last month",
+      body: `No graded metric changed status from ${formatMonth(previousReport.month)} to ${formatMonth(report.month)}.`,
+      severity: "info",
+    },
+  ];
+}
+
+function healthTakeaways(report) {
+  if (!report.month) return [];
+  const previousMonth = previousHealthMonth(report.month);
+  const previousReport = previousMonth ? buildHealthReport(previousMonth) : null;
+  const counts = healthStatusCounts(report);
+  const rowMap = healthRowMap(report);
+  const previousRows = healthRowMap(previousReport);
+  const attendance = rowMap.get("attendance");
+  const previousAttendance = previousRows.get("attendance");
+  const attendanceChange = pctChange(healthNumericValue(attendance), healthNumericValue(previousAttendance));
+  const urgentRows = report.rows
+    .filter((row) => row.status.grade !== null)
+    .sort((a, b) => (b.status.grade || 0) - (a.status.grade || 0));
+  const mostUrgent = urgentRows[0];
+  const vacancies = rowMap.get("leadershipVacancies");
+  const previousVacancies = previousRows.get("leadershipVacancies");
+  const vacancyValue = healthNumericValue(vacancies);
+  const previousVacancyValue = healthNumericValue(previousVacancies);
+  const vacancyChange =
+    vacancyValue !== null && previousVacancyValue !== null ? vacancyValue - previousVacancyValue : null;
+  const takeaways = [
+    {
+      title: `${formatMonth(report.month)} health snapshot`,
+      body: counts.total
+        ? `${counts.onTrack} on track, ${counts.watch} watch, ${counts.urgent} urgent, and ${counts.critical} critical across ${counts.total} graded health metrics.`
+        : "Connect the health input sheets to grade this month.",
+      severity: counts.critical || counts.urgent ? "critical" : counts.watch ? "warning" : "info",
+    },
+  ];
+
+  if (previousReport && attendance) {
+    takeaways.push({
+      title:
+        attendanceChange === null
+          ? "Attendance needs last month for comparison"
+          : `Average attendance ${attendanceChange < 0 ? "dipped" : attendanceChange > 0 ? "grew" : "held flat"} ${formatPct(
+              attendanceChange,
+            )} vs last month`,
+      body:
+        attendanceChange === null
+          ? `No clean ${formatMonth(previousReport.month)} attendance average was available for comparison.`
+          : `${formatMonth(report.month)} averaged ${formatNumber(healthNumericValue(attendance))}, compared with ${formatNumber(
+              healthNumericValue(previousAttendance),
+            )} in ${formatMonth(previousReport.month)}.`,
+      severity: attendanceChange !== null && attendanceChange < 0 ? "warning" : "info",
+    });
+  } else {
+    takeaways.push({
+      title: "Month archive starts here",
+      body: "Once another month is available, this panel will compare the selected month with the prior month.",
+      severity: "info",
+    });
+  }
+
+  if (mostUrgent) {
+    takeaways.push({
+      title:
+        mostUrgent.status.grade <= 1
+          ? "No urgent graded health gaps"
+          : `Highest attention metric: ${mostUrgent.label}`,
+      body:
+        mostUrgent.status.grade <= 1
+          ? "Every graded metric is currently on track for the selected month."
+          : `${mostUrgent.label} is ${formatHealthValueForInsight(mostUrgent)} against an optimal of ${
+              mostUrgent.optimal
+            }. Current grade: ${mostUrgent.status.grade}, ${mostUrgent.status.label}.`,
+      severity: healthInsightSeverity(mostUrgent.status.tone),
+    });
+  }
+
+  takeaways.push(...statusChangeInsights(report, previousReport));
+
+  if (vacancies) {
+    takeaways.push({
+      title: `Leadership vacancies: ${formatNumber(vacancyValue)}`,
+      body:
+        vacancyChange === null
+          ? "Vacancy comparison will appear once the previous month has leadership data."
+          : vacancyChange === 0
+            ? `Leadership vacancies were unchanged from ${formatMonth(previousReport.month)}.`
+            : `${Math.abs(vacancyChange)} ${Math.abs(vacancyChange) === 1 ? "vacancy" : "vacancies"} ${
+                vacancyChange > 0 ? "added" : "closed"
+              } compared with ${formatMonth(previousReport.month)}.`,
+      severity: vacancyValue > 0 ? (vacancyValue >= 5 ? "critical" : "warning") : "info",
+    });
+  }
+
+  return takeaways;
+}
+
+function renderHealthInsights(report) {
+  const takeaways = healthTakeaways(report);
+  if (!takeaways.length) {
+    els.healthInsights.innerHTML = `
+      <article class="insight">
+        <h3 class="insight-title">Connect Excel to load health takeaways</h3>
+        <p class="insight-body">The latest completed month, month archive, and month-to-month comparison will appear here once live workbook data is loaded.</p>
+      </article>
+    `;
+    return;
+  }
+  els.healthInsights.innerHTML = takeaways
+    .map(
+      (insight) => `
+        <article class="insight ${insight.severity || "info"}">
+          <h3 class="insight-title">${insight.title}</h3>
+          <p class="insight-body">${insight.body}</p>
+        </article>
+      `,
+    )
+    .join("");
 }
 
 function formatHealthCell(format, value) {
@@ -1713,10 +2239,15 @@ function renderLeadershipVacancyChart(report) {
 }
 
 function renderHealth() {
+  syncHealthMonthOptions();
   const report = buildHealthReport();
   els.healthMonthMeta.textContent = report.month
+    ? `${state.campus}`
+    : "Latest completed month";
+  els.healthReportMeta.textContent = report.month
     ? `${formatMonth(report.month)} · ${state.campus}`
     : "Latest completed month";
+  renderHealthInsights(report);
   renderHealthTable(report);
   renderLeadershipVacancyChart(report);
 }
@@ -2000,6 +2531,99 @@ function renderBigFiveCharts(records) {
   );
 }
 
+const bigFiveInsightSections = [
+  {
+    key: "results",
+    kicker: "Event Scorecard",
+    title: "What happened",
+  },
+  {
+    key: "return",
+    kicker: "Return Momentum",
+    title: "Who came back after the event",
+  },
+  {
+    key: "next",
+    kicker: "Next Big 5 Focus",
+    title: "What to aim for next",
+  },
+  {
+    key: "campus",
+    kicker: "Campus Playbook",
+    title: "Where to learn or lean in",
+  },
+];
+
+function bigFiveInsightSectionKey(insight) {
+  if (insight.category) return insight.category;
+  const title = normalizeText(insight.title);
+  if (
+    title.includes("postweek") ||
+    title.includes("following") ||
+    title.includes("handoff") ||
+    title.includes("fourweek") ||
+    title.includes("held")
+  ) {
+    return "return";
+  }
+  if (
+    title.includes("goal") ||
+    title.includes("growthplan") ||
+    title.includes("pattern") ||
+    title.includes("growthbooster")
+  ) {
+    return "next";
+  }
+  if (
+    title.includes("campus") ||
+    title.includes("learnfrom") ||
+    title.includes("share") ||
+    title.includes("support") ||
+    title.includes("needs")
+  ) {
+    return "campus";
+  }
+  return "results";
+}
+
+function renderBigFiveInsightSections(insights) {
+  const grouped = new Map(bigFiveInsightSections.map((section) => [section.key, []]));
+  for (const insight of insights) {
+    const key = grouped.has(bigFiveInsightSectionKey(insight)) ? bigFiveInsightSectionKey(insight) : "results";
+    grouped.get(key).push(insight);
+  }
+
+  els.bigFiveInsights.innerHTML = bigFiveInsightSections
+    .filter((section) => grouped.get(section.key)?.length)
+    .map((section) => {
+      const sectionInsights = grouped.get(section.key);
+      return `
+        <details class="big-five-insight-section" open>
+          <summary>
+            <span class="big-five-insight-heading">
+              <span class="panel-kicker">${section.kicker}</span>
+              <strong>${section.title}</strong>
+              <span>${sectionInsights.length} ${sectionInsights.length === 1 ? "insight" : "insights"}</span>
+            </span>
+          </summary>
+          <div class="insight-list insight-grid">
+            ${sectionInsights
+              .map(
+                (insight) => `
+                  <article class="insight ${insight.severity || "info"}">
+                    <h3 class="insight-title">${insight.title}</h3>
+                    <p class="insight-body">${insight.body}</p>
+                  </article>
+                `,
+              )
+              .join("")}
+          </div>
+        </details>
+      `;
+    })
+    .join("");
+}
+
 function renderBigFiveInsights(records) {
   const latest = records.filter((record) => record.campaignTotal > 0).at(-1);
   if (!latest) {
@@ -2171,16 +2795,7 @@ function renderBigFiveInsights(records) {
     });
   }
 
-  els.bigFiveInsights.innerHTML = insights
-    .map(
-      (insight) => `
-        <article class="insight ${insight.severity || "info"}">
-          <h3 class="insight-title">${insight.title}</h3>
-          <p class="insight-body">${insight.body}</p>
-        </article>
-      `,
-    )
-    .join("");
+  renderBigFiveInsightSections(insights);
 }
 
 function renderBigFiveTable(records) {
@@ -2262,6 +2877,8 @@ function renderMetricPanels() {
   for (const panel of els.attendanceOnlyPanels) {
     panel.classList.toggle("is-hidden", state.metric !== "attendance");
   }
+  els.trendInsightLayout?.classList.toggle("attendance-stack", state.metric === "attendance");
+  els.comparisonGrid?.classList.toggle("single-panel", state.metric !== "attendance");
   els.eventToggleWrapper?.classList.toggle("is-hidden", !showStandard);
 }
 
@@ -2298,7 +2915,7 @@ function updateDashboard() {
   renderKpis(points);
   renderLineChart(points);
   renderBars();
-  renderVolatility();
+  if (state.metric === "attendance") renderVolatility();
   renderInsights();
   renderHealth();
   if (state.metric === "attendance") renderTable();

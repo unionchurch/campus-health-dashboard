@@ -58,6 +58,18 @@ let msalClient;
 let activeAccount;
 
 export function setupLiveExcel({ onData, onStatus, onReady }) {
+  if (window.location.protocol === "file:") {
+    onStatus("Open this from http://localhost:4173 to connect Excel. File links can only show static data.", "error");
+    onReady(false);
+    return;
+  }
+
+  if (["127.0.0.1", "::1"].includes(window.location.hostname)) {
+    onStatus("Use http://localhost:4173 instead of 127.0.0.1 so Microsoft sign-in matches the setup.", "error");
+    onReady(false);
+    return;
+  }
+
   if (!window.msal) {
     onStatus("Microsoft sign-in library did not load. Check internet access.", "error");
     return;
@@ -162,6 +174,7 @@ async function readWorkbookData(token, driveItem) {
   sheets["2025"] = await readRange("2025", "A1:BX71");
   sheets["Big 5 Historical Raw Data"] = await readRange("Big 5 Historical Raw Data", "A1:F700");
   sheets["Big 5 Historical Data"] = await readRange("Big 5 Historical Data", "A1:J40");
+  sheets["Active Dream Team"] = await tryReadRange("Active Dream Team", "A1:Z80");
   sheets["Health Targets"] = await tryReadRange("Health Targets", "A1:H150");
   sheets["Group Semester Config"] = await tryReadRange("Group Semester Config", "A1:K500");
   sheets["Group Health Input"] = await tryReadRange("Group Health Input", "A1:L1200");
@@ -247,7 +260,7 @@ function buildDashboardData(sheets, driveItem) {
     sheets["Big 5 Historical Raw Data"],
     sheets["Big 5 Historical Data"],
   );
-  const health = extractHealthData(sheets, metrics, attendance2025, campuses);
+  const health = extractHealthData(sheets, metrics, latestDate);
 
   return {
     source: {
@@ -584,7 +597,7 @@ function extract2025Yoy(range, campuses, latestDate) {
   };
 }
 
-function extractHealthData(sheets, metrics) {
+function extractHealthData(sheets, metrics, latestDate) {
   const groupConfig = extractGroupConfig(sheets["Group Semester Config"]);
   const groupAttendance = extractGroupAttendance(
     sheets["Group Health Input"],
@@ -592,6 +605,7 @@ function extractHealthData(sheets, metrics) {
   );
   const heartSoulRows = extractHeartSoulRows(sheets["Heart Soul Input"]);
   const leadershipRows = extractLeadershipRows(sheets["Leadership Input"]);
+  const activeDreamTeam = extractActiveDreamTeam(sheets["Active Dream Team"], latestDate);
   const targets = extractHealthTargets(sheets["Health Targets"]);
 
   return {
@@ -600,7 +614,8 @@ function extractHealthData(sheets, metrics) {
     groupAttendance,
     heartSoulRows,
     leadershipRows,
-    months: extractHealthMonths(metrics, groupConfig, groupAttendance, heartSoulRows, leadershipRows),
+    activeDreamTeam,
+    months: extractHealthMonths(metrics, groupConfig, groupAttendance, heartSoulRows, leadershipRows, activeDreamTeam),
   };
 }
 
@@ -712,6 +727,88 @@ function rowMonth(row, names) {
   if (usLike) return `${usLike[2]}-${String(Number(usLike[1])).padStart(2, "0")}`;
   const parsed = new Date(`${text} 1`);
   return Number.isNaN(parsed.getTime()) ? null : toIsoDate(parsed).slice(0, 7);
+}
+
+function monthNumberFromHeader(value) {
+  const normalized = normalizeHeader(value);
+  if (!normalized) return null;
+  const monthLookup = {
+    jan: 1,
+    january: 1,
+    feb: 2,
+    february: 2,
+    mar: 3,
+    march: 3,
+    apr: 4,
+    april: 4,
+    may: 5,
+    jun: 6,
+    june: 6,
+    jul: 7,
+    july: 7,
+    aug: 8,
+    august: 8,
+    sep: 9,
+    sept: 9,
+    september: 9,
+    oct: 10,
+    october: 10,
+    nov: 11,
+    november: 11,
+    dec: 12,
+    december: 12,
+  };
+  const direct = monthLookup[normalized];
+  if (direct) return direct;
+  const firstToken = normalized.split("_")[0];
+  return monthLookup[firstToken] || null;
+}
+
+function extractActiveDreamTeam(range, latestDate) {
+  const values = matrix(range, "values");
+  const text = matrix(range, "text");
+  if (!values.length) return [];
+
+  const year = Number(latestDate?.slice(0, 4)) || new Date().getFullYear();
+  let headerRow = -1;
+  let monthColumns = [];
+
+  for (let row = 0; row < values.length; row += 1) {
+    const candidates = [];
+    for (let col = 1; col < (values[row]?.length || 0); col += 1) {
+      const monthNumber = monthNumberFromHeader(text[row]?.[col] || values[row]?.[col]);
+      if (!monthNumber) continue;
+      candidates.push({
+        col,
+        month: `${year}-${String(monthNumber).padStart(2, "0")}`,
+      });
+    }
+    if (candidates.length >= 3) {
+      headerRow = row;
+      monthColumns = candidates;
+      break;
+    }
+  }
+
+  if (headerRow < 0) return [];
+
+  const rows = [];
+  for (let row = headerRow + 1; row < values.length; row += 1) {
+    const campus = cleanText(text[row]?.[0] || values[row]?.[0]);
+    if (!campus) continue;
+    if (campus.toLowerCase().startsWith("total")) break;
+    for (const { col, month } of monthColumns) {
+      const activeDreamTeam = asNumber(values[row]?.[col], text[row]?.[col]);
+      if (activeDreamTeam === null) continue;
+      rows.push({
+        month,
+        campus,
+        activeDreamTeam: normalizeValue(activeDreamTeam),
+      });
+    }
+  }
+
+  return rows;
 }
 
 function extractHealthTargets(range) {
@@ -857,7 +954,7 @@ function monthsBetween(startIso, endIso) {
   return months;
 }
 
-function extractHealthMonths(metrics, groupConfig, groupAttendance, heartSoulRows, leadershipRows) {
+function extractHealthMonths(metrics, groupConfig, groupAttendance, heartSoulRows, leadershipRows, activeDreamTeam) {
   const months = new Set();
   for (const points of Object.values(metrics.attendance?.series || {})) {
     for (const point of points) {
@@ -870,6 +967,7 @@ function extractHealthMonths(metrics, groupConfig, groupAttendance, heartSoulRow
   for (const row of groupAttendance) months.add(monthKeyFromIso(row.weekStart));
   for (const row of heartSoulRows) months.add(row.month);
   for (const row of leadershipRows) months.add(row.month);
+  for (const row of activeDreamTeam) months.add(row.month);
   return Array.from(months).filter(Boolean).sort();
 }
 
