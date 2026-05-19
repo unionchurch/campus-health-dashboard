@@ -19,8 +19,9 @@ const metricOrder = [
   "salvations",
   "firstTimers",
   "dreamTeam",
-  "bigFive",
   "healthReport",
+  "bigFive",
+  "campusGrowthHistory",
 ];
 
 let metricLabels = getMetricLabels();
@@ -261,6 +262,16 @@ const els = {
   healthTableBody: document.querySelector("#healthTableBody"),
   leadershipVacancyChart: document.querySelector("#leadershipVacancyChart"),
   leadershipVacancyMeta: document.querySelector("#leadershipVacancyMeta"),
+  growthHistoryMeta: document.querySelector("#growthHistoryMeta"),
+  growthHistoryKpis: document.querySelector("#growthHistoryKpis"),
+  growthHistoryTrendTitle: document.querySelector("#growthHistoryTrendTitle"),
+  growthHistoryTrendMeta: document.querySelector("#growthHistoryTrendMeta"),
+  growthHistoryTrendChart: document.querySelector("#growthHistoryTrendChart"),
+  growthHistoryShareMeta: document.querySelector("#growthHistoryShareMeta"),
+  growthHistoryShareChart: document.querySelector("#growthHistoryShareChart"),
+  growthHistoryInsights: document.querySelector("#growthHistoryInsights"),
+  growthHistoryTableHead: document.querySelector("#growthHistoryTableHead"),
+  growthHistoryTable: document.querySelector("#growthHistoryTable"),
 };
 
 let liveExcel;
@@ -273,6 +284,8 @@ function getMetricLabels() {
         ? "Monthly Health Report"
         : key === "bigFive"
           ? "Big 5"
+          : key === "campusGrowthHistory"
+            ? "Campus Growth History"
           : data.metrics[key]?.label || key,
     ]),
   );
@@ -309,6 +322,12 @@ function formatMonth(monthKey) {
 function formatNumber(value) {
   if (value === null || value === undefined || Number.isNaN(value)) return "--";
   return Math.round(value).toLocaleString("en-US");
+}
+
+function formatSignedNumber(value) {
+  if (value === null || value === undefined || Number.isNaN(value)) return "--";
+  const rounded = Math.round(value);
+  return `${rounded > 0 ? "+" : ""}${rounded.toLocaleString("en-US")}`;
 }
 
 function formatPct(value) {
@@ -851,6 +870,90 @@ function chartNoteLines(note, maxChars = 28, maxLines = 2) {
   return lines.slice(0, maxLines);
 }
 
+const movementContextMetrics = ["kids", "dreamTeam", "growthTrack", "firstTimers", "salvations", "baptism"];
+
+function scopedMetricValue(metricKey, date) {
+  const campuses = state.campus === "All Campuses" ? data.campuses : [state.campus];
+  return metricValueOnDate(metricKey, campuses, date);
+}
+
+function metricChangeOnDates(metricKey, date, previousDate) {
+  const current = scopedMetricValue(metricKey, date);
+  const previous = scopedMetricValue(metricKey, previousDate);
+  const delta = current !== null && previous !== null ? current - previous : null;
+  return {
+    metricKey,
+    label: metricLabels[metricKey] || data.metrics[metricKey]?.label || metricKey,
+    current,
+    previous,
+    delta,
+    changePct: pctChange(current, previous),
+  };
+}
+
+function dreamTeamTeamTotals(date, campusScope = state.campus) {
+  const rows = (data.dreamTeamDetail || []).filter(
+    (row) => row.date === date && (campusScope === "All Campuses" || row.campus === campusScope),
+  );
+  const byTeam = new Map();
+  for (const row of rows) {
+    const current = byTeam.get(row.team) || { team: row.team, served: 0, target: 0, hasTarget: false };
+    current.served += row.served || 0;
+    if (row.target !== null && row.target !== undefined) {
+      current.target += row.target;
+      current.hasTarget = true;
+    }
+    byTeam.set(row.team, current);
+  }
+  return Array.from(byTeam.values()).sort((a, b) => b.served - a.served);
+}
+
+function dreamTeamTeamChanges(date, previousDate, campusScope = state.campus) {
+  const current = new Map(dreamTeamTeamTotals(date, campusScope).map((row) => [row.team, row]));
+  const previous = new Map(dreamTeamTeamTotals(previousDate, campusScope).map((row) => [row.team, row]));
+  const teams = new Set([...current.keys(), ...previous.keys()]);
+  return Array.from(teams)
+    .map((team) => {
+      const currentServed = current.get(team)?.served ?? 0;
+      const previousServed = previous.get(team)?.served ?? 0;
+      return {
+        team,
+        current: currentServed,
+        previous: previousServed,
+        delta: currentServed - previousServed,
+        changePct: pctChange(currentServed, previousServed),
+        target: current.get(team)?.hasTarget ? current.get(team).target : null,
+      };
+    })
+    .filter((row) => row.current || row.previous)
+    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+}
+
+function chartContextLines(point, index, points) {
+  const previous = points[index - 1];
+  if (!previous) return [];
+
+  if (state.metric === "attendance") {
+    const attendanceChange = pctChange(point.value, previous.value);
+    const direction = attendanceChange < 0 ? -1 : attendanceChange > 0 ? 1 : 0;
+    return movementContextMetrics
+      .map((metricKey) => metricChangeOnDates(metricKey, point.date, previous.date))
+      .filter((row) => row.delta !== null && row.delta !== 0)
+      .filter((row) => !direction || Math.sign(row.delta) === direction)
+      .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
+      .slice(0, 3)
+      .map((row) => `${row.label}: ${formatSignedNumber(row.delta)} (${formatPct(row.changePct)})`);
+  }
+
+  if (state.metric === "dreamTeam") {
+    return dreamTeamTeamChanges(point.date, previous.date)
+      .slice(0, 3)
+      .map((row) => `${row.team}: ${formatSignedNumber(row.delta)} (${formatPct(row.changePct)})`);
+  }
+
+  return [];
+}
+
 function renderLineChart(points) {
   if (!points.length) {
     els.lineChart.innerHTML = `<div class="empty">No points available.</div>`;
@@ -893,12 +996,12 @@ function renderLineChart(points) {
       <path class="series-line" d="${linePath}"></path>
       ${points
         .map((point, index) => {
-          const noteLines = chartNoteLines(point.event);
+          const noteLines = [...chartNoteLines(point.event), ...chartContextLines(point, index, points)].slice(0, 4);
           const hasNote = noteLines.length > 0;
           const isEvent = hasNote || point.eventType !== "normal";
           const cx = x(index);
           const cy = y(point.value);
-          const tooltipHeight = hasNote ? 78 : 50;
+          const tooltipHeight = hasNote ? 50 + noteLines.length * 14 : 50;
           const tooltipX = Math.min(Math.max(cx - tooltipWidth / 2, margin.left - 24), width - margin.right - tooltipWidth + 24);
           const tooltipY = Math.max(cy - tooltipHeight - 18, margin.top - 10);
           return `
@@ -975,6 +1078,32 @@ function wireLineChartTooltips() {
 }
 
 function renderBars() {
+  if (state.metric === "dreamTeam") {
+    const points = getMetricPoints("dreamTeam", state.campus);
+    const latestDate = points.at(-1)?.date;
+    const teamRows = latestDate ? dreamTeamTeamTotals(latestDate) : [];
+    if (teamRows.length) {
+      const max = Math.max(...teamRows.map((row) => row.served), 1);
+      els.barTitle.textContent =
+        state.campus === "All Campuses" ? "Dream Team by Team" : `${state.campus} Dream Team by Team`;
+      els.barMeta.textContent = latestDate ? shortDate(latestDate) : "";
+      els.barChart.innerHTML = teamRows
+        .map((row) => {
+          const width = Math.max(3, (row.served / max) * 100);
+          const targetGap = row.hasTarget && row.target ? row.served - row.target : null;
+          return `
+            <div class="bar-row">
+              <div class="bar-label" title="${row.team}">${row.team}</div>
+              <div class="bar-track"><div class="bar-fill" style="width:${width}%"></div></div>
+              <div class="bar-value" title="${targetGap === null ? "" : `${formatSignedNumber(targetGap)} vs target`}">${formatNumber(row.served)}</div>
+            </div>
+          `;
+        })
+        .join("");
+      return;
+    }
+  }
+
   const rows = latestByCampus(state.metric);
   const max = Math.max(...rows.map((row) => row.value), 1);
   const latestDate = rows[0]?.date;
@@ -1273,6 +1402,174 @@ function growthLeverInsights() {
   ];
 }
 
+function metricCampusMovementRows(metricKey) {
+  const campuses = state.campus === "All Campuses" ? data.campuses : [state.campus];
+  return campuses
+    .map((campus) => {
+      const points = getMetricPoints(metricKey, campus);
+      const latest = points.at(-1);
+      const previous = points.at(-2);
+      const changePct = latest && previous ? pctChange(latest.value, previous.value) : null;
+      return {
+        campus,
+        latest,
+        previous,
+        delta: latest && previous ? latest.value - previous.value : null,
+        changePct,
+      };
+    })
+    .filter((row) => row.latest && row.previous && isFiniteNumber(row.changePct));
+}
+
+function movementThreshold(metricKey) {
+  if (metricKey === "attendance" || metricKey === "kids" || metricKey === "dreamTeam") return 10;
+  return 25;
+}
+
+function metricMovementInsights() {
+  if (state.metric === "attendance") return [];
+  const rows = metricCampusMovementRows(state.metric);
+  if (!rows.length) return [];
+
+  const label = metricLabels[state.metric];
+  const threshold = movementThreshold(state.metric);
+  const surged = rows
+    .filter((row) => row.changePct >= threshold && Math.abs(row.delta) >= 2)
+    .sort((a, b) => b.changePct - a.changePct);
+  const dropped = rows
+    .filter((row) => row.changePct <= -threshold && Math.abs(row.delta) >= 2)
+    .sort((a, b) => a.changePct - b.changePct);
+  const insights = [];
+
+  const writeCampusPrompt = (row, direction) =>
+    state.campus === "All Campuses"
+      ? `${row.campus} moved ${formatPct(row.changePct)} (${formatSignedNumber(row.delta)}) from the previous Sunday. Ask what was different that day and whether the practice can be repeated or the gap can be fixed.`
+      : `${state.campus} moved ${formatPct(row.changePct)} (${formatSignedNumber(row.delta)}) from the previous Sunday. Look at service flow, team readiness, communication, and reporting accuracy for that Sunday.`;
+
+  if (surged.length) {
+    const top = surged[0];
+    insights.push({
+      title:
+        state.campus === "All Campuses"
+          ? `${top.campus} had a ${label} surge`
+          : `${label} surged at ${state.campus}`,
+      body: writeCampusPrompt(top, "surge"),
+      severity: "info",
+    });
+  }
+
+  if (dropped.length) {
+    const low = dropped[0];
+    insights.push({
+      title:
+        state.campus === "All Campuses"
+          ? `${low.campus} had a large ${label} drop`
+          : `${label} dropped sharply at ${state.campus}`,
+      body: writeCampusPrompt(low, "drop"),
+      severity: Math.abs(low.changePct) >= threshold * 1.75 ? "critical" : "warning",
+    });
+  }
+
+  if (state.campus === "All Campuses") {
+    const upCount = rows.filter((row) => row.changePct > 0).length;
+    const downCount = rows.filter((row) => row.changePct < 0).length;
+    if (upCount || downCount) {
+      insights.push({
+        title: `${label} moved up at ${upCount} campuses and down at ${downCount}`,
+        body: `Strongest up: ${movementCampusList(
+          rows.filter((row) => row.changePct > 0).sort((a, b) => b.changePct - a.changePct),
+          2,
+        ) || "none"}. Largest drop: ${
+          movementCampusList(rows.filter((row) => row.changePct < 0).sort((a, b) => a.changePct - b.changePct), 2) ||
+          "none"
+        }. Use the contrast to find repeatable practices.`,
+        severity: downCount > upCount ? "warning" : "info",
+      });
+    }
+  }
+
+  return insights;
+}
+
+function attendanceCategoryContributionInsights() {
+  const points = getMetricPoints("attendance", state.campus);
+  const latest = points.at(-1);
+  const previous = points.at(-2);
+  if (!latest || !previous) return [];
+
+  const attendanceChange = pctChange(latest.value, previous.value);
+  if (!isFiniteNumber(attendanceChange) || attendanceChange === 0) return [];
+
+  const direction = attendanceChange < 0 ? -1 : 1;
+  const movers = movementContextMetrics
+    .map((metricKey) => metricChangeOnDates(metricKey, latest.date, previous.date))
+    .filter((row) => row.delta !== null && row.delta !== 0 && Math.sign(row.delta) === direction)
+    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
+    .slice(0, 3);
+
+  if (!movers.length) return [];
+
+  return [
+    {
+      title: attendanceChange < 0 ? "What likely contributed to the attendance dip" : "What rose with attendance",
+      body: `${movers
+        .map((row) => `${row.label} ${formatSignedNumber(row.delta)} (${formatPct(row.changePct)})`)
+        .join(", ")}. This is not automatic cause-and-effect, but it tells the XP what to investigate first.`,
+      severity: attendanceChange < 0 ? "warning" : "info",
+      category: "focus",
+    },
+  ];
+}
+
+function dreamTeamDetailInsights() {
+  if (state.metric !== "dreamTeam") return [];
+  const points = getMetricPoints("dreamTeam", state.campus);
+  const latest = points.at(-1);
+  const previous = points.at(-2);
+  if (!latest || !previous) return [];
+
+  const changes = dreamTeamTeamChanges(latest.date, previous.date);
+  if (!changes.length) return [];
+  const down = changes.filter((row) => row.delta < 0).sort((a, b) => a.delta - b.delta)[0];
+  const up = changes.filter((row) => row.delta > 0).sort((a, b) => b.delta - a.delta)[0];
+  const targetMiss = changes
+    .filter((row) => row.target !== null && row.current < row.target)
+    .sort((a, b) => a.current - a.target - (b.current - b.target))[0];
+  const insights = [];
+
+  if (down) {
+    insights.push({
+      title: `${down.team} drove the largest Dream Team drop`,
+      body: `${down.team} was ${formatSignedNumber(down.delta)} from the previous Sunday (${formatPct(
+        down.changePct,
+      )}). Ask whether scheduling, call-outs, team leadership, or reporting changed that day.`,
+      severity: Math.abs(down.changePct || 0) >= 25 ? "critical" : "warning",
+    });
+  }
+
+  if (up) {
+    insights.push({
+      title: `${up.team} had the strongest serving lift`,
+      body: `${up.team} was ${formatSignedNumber(up.delta)} from the previous Sunday (${formatPct(
+        up.changePct,
+      )}). Find out what made that team stronger and whether the same move can help other teams.`,
+      severity: "info",
+    });
+  }
+
+  if (targetMiss) {
+    insights.push({
+      title: `${targetMiss.team} is below serving target`,
+      body: `${targetMiss.team} had ${formatNumber(targetMiss.current)} serving against a target of ${formatNumber(
+        targetMiss.target,
+      )}. Gap: ${formatSignedNumber(targetMiss.current - targetMiss.target)}.`,
+      severity: "warning",
+    });
+  }
+
+  return insights;
+}
+
 function gradeAttendanceTrend(change) {
   if (!isFiniteNumber(change)) return "info";
   if (change <= -10) return "critical";
@@ -1548,6 +1845,9 @@ function renderInsights() {
     ...(state.metric === "attendance" && state.campus === "All Campuses" ? allCampusAttendanceTrendInsights() : []),
     ...baseInsights,
     ...(state.metric === "attendance" ? attendanceOpportunityInsights() : []),
+    ...(state.metric === "attendance" ? attendanceCategoryContributionInsights() : []),
+    ...metricMovementInsights(),
+    ...dreamTeamDetailInsights(),
     ...metricOpportunityInsights(),
     ...(state.metric === "attendance" ? growthLeverInsights() : []),
   ];
@@ -2357,6 +2657,241 @@ function renderHealth() {
   renderLeadershipVacancyChart(report);
 }
 
+function growthHistoryRows() {
+  return data.campusGrowthHistory?.rows || [];
+}
+
+function growthHistoryYears() {
+  return data.campusGrowthHistory?.years || [];
+}
+
+function campusAliasTerms(campus) {
+  const aliases = {
+    Columbia: ["col", "columbia"],
+    Flowers: ["flo", "flowers"],
+    "Falls Church": ["fc", "fallschurch", "falls church"],
+    "Silver Spring": ["ss", "silverspring", "silver spring"],
+    "North Meck": ["northmeck", "north meck", "nm", "clt", "concord"],
+    "Mint Hill": ["minthill", "mint hill", "mh"],
+    BWI: ["bwi"],
+    UBC: ["ubc"],
+  };
+  return aliases[campus] || [campus];
+}
+
+function growthHistoryRowForCampus() {
+  const rows = growthHistoryRows();
+  if (state.campus === "All Campuses") {
+    return rows.find((row) => normalizeText(row.campus) === "total") || null;
+  }
+  return rows.find((row) => normalizeText(row.campus) === normalizeText(state.campus)) || null;
+}
+
+function relevantGrowthHistoryNote(year, campus = state.campus) {
+  const note = (data.campusGrowthHistory?.notes || []).find((row) => row.year === Number(year))?.note;
+  if (!note) return "";
+  const lines = String(note)
+    .split(/\n+/)
+    .map((line) => line.replace(/^-\s*/, "").trim())
+    .filter(Boolean);
+  if (campus === "All Campuses") return lines.join(" ");
+  const terms = campusAliasTerms(campus).map(normalizeText);
+  const relevant = lines.filter((line) => {
+    const normalized = normalizeText(line);
+    return terms.some((term) => normalized.includes(term)) || normalized.includes("allcampus");
+  });
+  return (relevant.length ? relevant : lines.filter((line) => /snow|closure|closed|broadcast/i.test(line))).join(" ");
+}
+
+function renderGrowthHistoryKpis(row, years) {
+  const latestYear = years.at(-1);
+  const firstYear = years.find((year) => isFiniteNumber(row?.yearly?.[year]));
+  const latestValue = latestYear ? row?.yearly?.[latestYear] : null;
+  const firstValue = firstYear ? row?.yearly?.[firstYear] : null;
+  const hasRangeValues = isFiniteNumber(firstValue) && isFiniteNumber(latestValue);
+  const kpis = [
+    {
+      label: latestYear ? `${latestYear} average` : "Latest average",
+      value: formatNumber(latestValue),
+      note: state.campus === "All Campuses" ? "All campuses" : state.campus,
+    },
+    {
+      label: "YoY Growth",
+      value: formatPct(row?.yoyPct),
+      valueClass: toneClass(row?.yoyPct),
+      note: "Latest year vs prior year",
+    },
+    {
+      label: "Growth Since Launch",
+      value: row?.growthSinceLaunch || "--",
+      note: firstYear ? `Compared with ${firstYear}` : "Needs history",
+    },
+    {
+      label: "Net Growth",
+      value: formatSignedNumber(row?.netGrowth),
+      valueClass: toneClass(row?.netGrowth),
+      note: hasRangeValues ? `From ${formatNumber(firstValue)} to ${formatNumber(latestValue)}` : "Needs history",
+    },
+  ];
+
+  els.growthHistoryKpis.innerHTML = kpis
+    .map(
+      (kpi) => `
+        <article class="kpi">
+          <div class="kpi-label">${kpi.label}</div>
+          <div class="kpi-value ${kpi.valueClass || ""}">${kpi.value}</div>
+          <div class="kpi-note">${kpi.note}</div>
+        </article>
+      `,
+    )
+    .join("");
+}
+
+function renderGrowthHistoryCharts(row, years) {
+  const latestYear = years.at(-1);
+  els.growthHistoryTrendTitle.textContent =
+    state.campus === "All Campuses" ? "All Campuses Attendance by Year" : `${state.campus} Attendance by Year`;
+  els.growthHistoryTrendMeta.textContent = latestYear ? `Through ${latestYear}` : "";
+  renderBarList(
+    els.growthHistoryTrendChart,
+    years
+      .filter((year) => isFiniteNumber(row?.yearly?.[year]))
+      .map((year) => ({
+        label: String(year),
+        value: row.yearly[year],
+        note: relevantGrowthHistoryNote(year),
+      })),
+  );
+
+  const campusRows = growthHistoryRows().filter(
+    (item) => normalizeText(item.campus) !== "total" && isFiniteNumber(item.yearly?.[latestYear]),
+  );
+  els.growthHistoryShareMeta.textContent = latestYear ? String(latestYear) : "";
+  renderBarList(
+    els.growthHistoryShareChart,
+    campusRows
+      .sort((a, b) => (b.yearly[latestYear] || 0) - (a.yearly[latestYear] || 0))
+      .map((item) => ({
+        label: item.campus,
+        value: item.yearly[latestYear],
+      })),
+    { activeLabel: state.campus !== "All Campuses" ? state.campus : undefined },
+  );
+}
+
+function renderGrowthHistoryInsights(row, years) {
+  const latestYear = years.at(-1);
+  const priorYear = years.at(-2);
+  if (!row || !latestYear) {
+    els.growthHistoryInsights.innerHTML = `
+      <article class="insight">
+        <h3 class="insight-title">Connect Excel to load growth history</h3>
+        <p class="insight-body">Campus growth history will appear once the live workbook data is available.</p>
+      </article>
+    `;
+    return;
+  }
+
+  const latestValue = row.yearly?.[latestYear];
+  const priorValue = priorYear ? row.yearly?.[priorYear] : null;
+  const change = pctChange(latestValue, priorValue);
+  const note = relevantGrowthHistoryNote(latestYear);
+  const rows = growthHistoryRows().filter((item) => normalizeText(item.campus) !== "total");
+  const fastest = rows
+    .filter((item) => isFiniteNumber(item.yoyPct))
+    .sort((a, b) => b.yoyPct - a.yoyPct)[0];
+  const slowest = rows
+    .filter((item) => isFiniteNumber(item.yoyPct))
+    .sort((a, b) => a.yoyPct - b.yoyPct)[0];
+  const insights = [
+    {
+      title: `${latestYear} growth is ${formatPct(change)}`,
+      body: `${row.campus} moved from ${formatNumber(priorValue)} in ${priorYear} to ${formatNumber(
+        latestValue,
+      )} in ${latestYear}.`,
+      severity: change < 0 ? "warning" : "info",
+    },
+  ];
+
+  if (note) {
+    insights.push({
+      title: `${latestYear} context`,
+      body: note,
+      severity: "info",
+    });
+  }
+
+  if (state.campus === "All Campuses" && fastest && slowest && fastest.campus !== slowest.campus) {
+    insights.push({
+      title: `${fastest.campus} is growing fastest; ${slowest.campus} needs review`,
+      body: `${fastest.campus} is ${formatPct(fastest.yoyPct)} YoY while ${slowest.campus} is ${formatPct(
+        slowest.yoyPct,
+      )}. Ask what is repeatable from the fastest campus and what changed at the campus losing ground.`,
+      severity: slowest.yoyPct < 0 ? "warning" : "info",
+    });
+  }
+
+  if (row.marketSharePct !== null && row.marketSharePct !== undefined) {
+    insights.push({
+      title: `Current market share: ${formatHealthPct(row.marketSharePct)}`,
+      body:
+        state.campus === "All Campuses"
+          ? "All campuses equals the full in-person attendance base."
+          : `${state.campus} represents ${formatHealthPct(row.marketSharePct)} of current in-person attendance.`,
+      severity: "info",
+    });
+  }
+
+  els.growthHistoryInsights.innerHTML = insights
+    .map(
+      (insight) => `
+        <article class="insight ${insight.severity || "info"}">
+          <h3 class="insight-title">${insight.title}</h3>
+          <p class="insight-body">${insight.body}</p>
+        </article>
+      `,
+    )
+    .join("");
+}
+
+function renderGrowthHistoryTable(years) {
+  const headers = [
+    "Campus",
+    ...years.map(String),
+    "YoY",
+    "Growth Since Launch",
+    "CAGR",
+    "Net Growth",
+    "Market Share",
+  ];
+  els.growthHistoryTableHead.innerHTML = headers.map((header) => `<th>${header}</th>`).join("");
+  els.growthHistoryTable.innerHTML = growthHistoryRows()
+    .map(
+      (row) => `
+        <tr class="${normalizeText(row.campus) === normalizeText(state.campus) || (state.campus === "All Campuses" && normalizeText(row.campus) === "total") ? "active" : ""}">
+          <td>${row.campus}</td>
+          ${years.map((year) => `<td>${formatNumber(row.yearly?.[year])}</td>`).join("")}
+          <td class="${toneClass(row.yoyPct)}">${formatPct(row.yoyPct)}</td>
+          <td>${row.growthSinceLaunch || "--"}</td>
+          <td class="${toneClass(row.cagrPct)}">${formatPct(row.cagrPct)}</td>
+          <td class="${toneClass(row.netGrowth)}">${formatSignedNumber(row.netGrowth)}</td>
+          <td>${formatHealthPct(row.marketSharePct)}</td>
+        </tr>
+      `,
+    )
+    .join("");
+}
+
+function renderGrowthHistory() {
+  const years = growthHistoryYears();
+  const row = growthHistoryRowForCampus();
+  els.growthHistoryMeta.textContent = years.length ? `${years[0]}-${years.at(-1)} · ${state.campus}` : state.campus;
+  renderGrowthHistoryKpis(row, years);
+  renderGrowthHistoryCharts(row, years);
+  renderGrowthHistoryInsights(row, years);
+  renderGrowthHistoryTable(years);
+}
+
 function summarizeBigFiveEvent() {
   const rows = data.bigFive.rows.filter(
     (row) =>
@@ -2515,10 +3050,11 @@ function renderBarList(container, rows, options = {}) {
       const width = Math.max(3, (row.value / max) * 100);
       const active = options.activeLabel !== undefined && String(row.label) === String(options.activeLabel);
       return `
-        <div class="bar-row ${active ? "active" : ""}">
+        <div class="bar-row ${active ? "active" : ""} ${row.note ? "has-note" : ""}" tabindex="${row.note ? "0" : "-1"}">
           <div class="bar-label" title="${row.label}">${row.label}</div>
           <div class="bar-track"><div class="bar-fill ${options.fillClass || ""}" style="width:${width}%"></div></div>
           <div class="bar-value">${options.format ? options.format(row.value) : formatNumber(row.value)}</div>
+          ${row.note ? `<div class="bar-note">${escapeHtml(row.note)}</div>` : ""}
         </div>
       `;
     })
@@ -2620,6 +3156,7 @@ function renderBigFiveCharts(records) {
     usable.map((record) => ({
       label: String(record.year),
       value: multiWeekEvent ? record.campaignTotal : record.featuredTotal,
+      note: relevantGrowthHistoryNote(record.year),
     })),
     { activeLabel: selected?.year },
   );
@@ -2981,19 +3518,25 @@ function isBigFiveSelected() {
   return state.metric === "bigFive";
 }
 
+function isGrowthHistorySelected() {
+  return state.metric === "campusGrowthHistory";
+}
+
 function isStandardMetricSelected() {
-  return !isHealthReportSelected() && !isBigFiveSelected();
+  return !isHealthReportSelected() && !isBigFiveSelected() && !isGrowthHistorySelected();
 }
 
 function renderMetricPanels() {
   const showHealth = isHealthReportSelected();
   const showBigFive = isBigFiveSelected();
+  const showGrowthHistory = isGrowthHistorySelected();
   const showStandard = isStandardMetricSelected();
   for (const panel of els.metricPanels) {
     const mode = panel.dataset.metricPanel;
     const visible =
       (mode === "health" && showHealth) ||
       (mode === "big-five" && showBigFive) ||
+      (mode === "growth-history" && showGrowthHistory) ||
       (mode === "standard" && showStandard);
     panel.classList.toggle("is-hidden", !visible);
   }
@@ -3019,6 +3562,10 @@ function updateDashboard() {
   }
   if (isBigFiveSelected()) {
     renderBigFive();
+    return;
+  }
+  if (isGrowthHistorySelected()) {
+    renderGrowthHistory();
     return;
   }
 

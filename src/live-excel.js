@@ -174,6 +174,11 @@ async function readWorkbookData(token, driveItem) {
   sheets["2025"] = await readRange("2025", "A1:BX71");
   sheets["Big 5 Historical Raw Data"] = await readRange("Big 5 Historical Raw Data", "A1:F700");
   sheets["Big 5 Historical Data"] = await readRange("Big 5 Historical Data", "A1:J40");
+  sheets["Campus Growth History"] = await tryReadRange("Campus Growth History", "A1:Z150");
+  sheets["Sunday - DT Detail"] = await tryReadFirstRange(
+    ["Sunday - DT Detail", "Sunday DT Detail", "Dream Team Detail"],
+    "A1:BW1200",
+  );
   sheets["Active Dream Team"] = await tryReadRange("Active Dream Team", "A1:Z80");
   sheets["Health Targets"] = await tryReadRange("Health Targets", "A1:H150");
   sheets["Group Semester Config"] = await tryReadRange("Group Semester Config", "A1:K500");
@@ -260,6 +265,8 @@ function buildDashboardData(sheets, driveItem) {
     sheets["Big 5 Historical Raw Data"],
     sheets["Big 5 Historical Data"],
   );
+  const dreamTeamDetail = extractDreamTeamDetail(sheets["Sunday - DT Detail"]);
+  const campusGrowthHistory = extractCampusGrowthHistory(sheets["Campus Growth History"]);
   const health = extractHealthData(sheets, metrics, latestDate);
 
   return {
@@ -290,6 +297,8 @@ function buildDashboardData(sheets, driveItem) {
       .sort((a, b) => b.swing10Count - a.swing10Count || b.avgAbsSwingPct - a.avgAbsSwingPct),
     yoy,
     bigFive,
+    dreamTeamDetail,
+    campusGrowthHistory,
     health,
     insights: buildInsights(campusStats, totals, yoy),
   };
@@ -372,6 +381,12 @@ function pct(value) {
   return value === null || value === undefined || Number.isNaN(value)
     ? null
     : Math.round(value * 1000) / 10;
+}
+
+function percentValue(value) {
+  if (value === null || value === undefined || Number.isNaN(value)) return null;
+  const normalized = Math.abs(value) > 1 ? value : value * 100;
+  return Math.round(normalized * 10) / 10;
 }
 
 function average(values) {
@@ -809,6 +824,141 @@ function extractActiveDreamTeam(range, latestDate) {
   }
 
   return rows;
+}
+
+function extractLongDreamTeamDetail(range) {
+  return tableRows(range, ["campus"])
+    .map((row) => ({
+      date: rowDate(row, ["date", "sunday", "week", "service_date", "served_date"]),
+      campus: rowText(row, ["campus"]),
+      team: rowText(row, ["team", "serving_team", "dream_team", "role", "area", "ministry"]),
+      served: rowNumber(row, ["served", "serving", "count", "team_count", "attendance", "volunteers"]),
+      target: rowNumber(row, ["target", "goal", "needed", "health_target"]),
+      notes: rowText(row, ["notes"]),
+    }))
+    .filter((row) => row.date && row.campus && row.team && row.served !== null);
+}
+
+function extractWideDreamTeamDetail(range) {
+  const values = matrix(range, "values");
+  const text = matrix(range, "text");
+  if (!values.length) return [];
+
+  let headerRow = -1;
+  let campusCol = -1;
+  let teamCol = -1;
+  let dateColumns = [];
+
+  for (let row = 0; row < values.length; row += 1) {
+    const keys = (values[row] || []).map((_, col) => normalizeHeader(text[row]?.[col] || values[row]?.[col]));
+    campusCol = keys.findIndex((key) => key === "campus");
+    teamCol = keys.findIndex((key) => ["team", "serving_team", "dream_team", "role", "area", "ministry"].includes(key));
+    dateColumns = [];
+    for (let col = 0; col < (values[row]?.length || 0); col += 1) {
+      const date = asDate(values[row]?.[col], text[row]?.[col]);
+      if (date) dateColumns.push({ col, date });
+    }
+    if (campusCol >= 0 && teamCol >= 0 && dateColumns.length) {
+      headerRow = row;
+      break;
+    }
+  }
+
+  if (headerRow < 0) return [];
+
+  const rows = [];
+  for (let row = headerRow + 1; row < values.length; row += 1) {
+    const campus = cleanText(text[row]?.[campusCol] || values[row]?.[campusCol]);
+    const team = cleanText(text[row]?.[teamCol] || values[row]?.[teamCol]);
+    if (!campus || !team) continue;
+    for (const { col, date } of dateColumns) {
+      const served = asNumber(values[row]?.[col], text[row]?.[col]);
+      if (served === null) continue;
+      rows.push({
+        date,
+        campus,
+        team,
+        served: normalizeValue(served),
+        target: null,
+        notes: null,
+      });
+    }
+  }
+  return rows;
+}
+
+function extractDreamTeamDetail(range) {
+  const rows = extractLongDreamTeamDetail(range);
+  const wideRows = rows.length ? [] : extractWideDreamTeamDetail(range);
+  return [...rows, ...wideRows].sort(
+    (a, b) => a.date.localeCompare(b.date) || a.campus.localeCompare(b.campus) || a.team.localeCompare(b.team),
+  );
+}
+
+function extractCampusGrowthHistory(range) {
+  const values = matrix(range, "values");
+  const text = matrix(range, "text");
+  if (!values.length) return { years: [], rows: [], notes: [] };
+
+  const header = values[0] || [];
+  const yearCols = [];
+  const metricCols = {};
+  for (let col = 1; col < header.length; col += 1) {
+    const year = asNumber(values[0]?.[col], text[0]?.[col]);
+    const key = normalizeHeader(text[0]?.[col] || values[0]?.[col]);
+    if (year && year >= 1900 && year <= 2100) {
+      yearCols.push({ col, year: Math.round(year) });
+    } else if (key) {
+      metricCols[key] = col;
+    }
+  }
+
+  const rows = [];
+  const notes = [];
+  for (let row = 1; row < values.length; row += 1) {
+    const campus = cleanText(text[row]?.[0] || values[row]?.[0]);
+    if (!campus) continue;
+    if (campus.toLowerCase().startsWith("notes")) {
+      for (const { col, year } of yearCols) {
+        const note = cleanText(text[row]?.[col] || values[row]?.[col]);
+        if (note) notes.push({ year, note });
+      }
+      continue;
+    }
+
+    const yearly = {};
+    for (const { col, year } of yearCols) {
+      const value = asNumber(values[row]?.[col], text[row]?.[col]);
+      if (value !== null) yearly[year] = normalizeValue(value);
+    }
+
+    const keyFrom = (patterns) =>
+      Object.keys(metricCols).find((candidate) => patterns.some((pattern) => candidate.includes(pattern)));
+    const valueFrom = (patterns) => {
+      const key = keyFrom(patterns);
+      return key ? asNumber(values[row]?.[metricCols[key]], text[row]?.[metricCols[key]]) : null;
+    };
+    const textFrom = (patterns) => {
+      const key = keyFrom(patterns);
+      return key ? cleanText(text[row]?.[metricCols[key]] || values[row]?.[metricCols[key]]) : null;
+    };
+
+    rows.push({
+      campus,
+      yearly,
+      yoyPct: percentValue(valueFrom(["yoy"])),
+      growthSinceLaunch: textFrom(["growth_since_launch", "growth_since", "since_launch"]),
+      cagrPct: percentValue(valueFrom(["cagr", "compound"])),
+      netGrowth: valueFrom(["net_growth"]),
+      marketSharePct: percentValue(valueFrom(["market_share"])),
+    });
+  }
+
+  return {
+    years: yearCols.map((item) => item.year),
+    rows,
+    notes,
+  };
 }
 
 function extractHealthTargets(range) {
