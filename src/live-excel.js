@@ -148,8 +148,9 @@ async function readWorkbookData(token, driveItem) {
   }
 
   const sessionId = await createWorkbookSession(token, driveId, itemId);
+  const worksheetNames = await listWorkbookSheetNames(token, driveId, itemId, sessionId);
   const readRange = (sheetName, address) =>
-    getWorkbookRange(token, driveId, itemId, sheetName, address, sessionId);
+    getWorkbookRange(token, driveId, itemId, resolveWorksheetName(sheetName, worksheetNames) || sheetName, address, sessionId);
   const tryReadRange = async (sheetName, address) => {
     try {
       return await readRange(sheetName, address);
@@ -177,7 +178,7 @@ async function readWorkbookData(token, driveItem) {
   sheets["Campus Growth History"] = await tryReadRange("Campus Growth History", "A1:Z150");
   sheets["Sunday - DT Detail"] = await tryReadFirstRange(
     ["Sunday - DT Detail", "Sunday DT Detail", "Dream Team Detail"],
-    "A1:BW1200",
+    "A1:Z10000",
   );
   sheets["Active Dream Team"] = await tryReadRange("Active Dream Team", "A1:Z80");
   sheets["Health Targets"] = await tryReadRange("Health Targets", "A1:H150");
@@ -199,6 +200,30 @@ async function readWorkbookData(token, driveItem) {
   return buildDashboardData(sheets, driveItem);
 }
 
+function normalizeWorksheetName(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[–—]/g, "-")
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function resolveWorksheetName(requestedName, worksheetNames = []) {
+  const requested = cleanText(requestedName);
+  if (!requested || !worksheetNames.length) return requestedName;
+  const exact = worksheetNames.find((name) => cleanText(name)?.toLowerCase() === requested.toLowerCase());
+  if (exact) return exact;
+  const normalized = normalizeWorksheetName(requested);
+  return (
+    worksheetNames.find((name) => normalizeWorksheetName(name) === normalized) ||
+    worksheetNames.find((name) => {
+      const candidate = normalizeWorksheetName(name);
+      return candidate.includes(normalized) || normalized.includes(candidate);
+    }) ||
+    requestedName
+  );
+}
+
 async function createWorkbookSession(token, driveId, itemId) {
   try {
     const response = await graphJson(
@@ -214,6 +239,17 @@ async function createWorkbookSession(token, driveId, itemId) {
   } catch (error) {
     console.warn("Continuing without workbook session", error);
     return null;
+  }
+}
+
+async function listWorkbookSheetNames(token, driveId, itemId, sessionId) {
+  try {
+    const headers = sessionId ? { "Workbook-Session-Id": sessionId } : {};
+    const payload = await graphJson(token, `/drives/${driveId}/items/${itemId}/workbook/worksheets`, { headers });
+    return (payload?.value || []).map((sheet) => sheet.name).filter(Boolean);
+  } catch (error) {
+    console.warn("Continuing without worksheet name list", error);
+    return [];
   }
 }
 
@@ -265,7 +301,7 @@ function buildDashboardData(sheets, driveItem) {
     sheets["Big 5 Historical Raw Data"],
     sheets["Big 5 Historical Data"],
   );
-  const dreamTeamDetail = extractDreamTeamDetail(sheets["Sunday - DT Detail"]);
+  const dreamTeamDetail = extractDreamTeamDetail(sheets["Sunday - DT Detail"], latestDate, campuses);
   const campusGrowthHistory = extractCampusGrowthHistory(sheets["Campus Growth History"]);
   const health = extractHealthData(sheets, metrics, latestDate);
 
@@ -332,7 +368,62 @@ function asNumber(value, textValue) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function asDate(value, textValue) {
+function dateFromText(value, defaultYear = null) {
+  const raw = cleanText(value);
+  if (!raw) return null;
+  const text = raw.includes("-") && raw.includes("/") ? raw.split("-").at(-1).trim() : raw;
+  const monthDayYear = text.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
+  if (monthDayYear) {
+    const [, month, day, yearText] = monthDayYear;
+    const year = Number(yearText.length === 2 ? `20${yearText}` : yearText);
+    return toIsoDate(new Date(Date.UTC(year, Number(month) - 1, Number(day))));
+  }
+  const monthDay = text.match(/^(\d{1,2})[/-](\d{1,2})$/);
+  if (monthDay && defaultYear) {
+    const [, month, day] = monthDay;
+    return toIsoDate(new Date(Date.UTC(defaultYear, Number(month) - 1, Number(day))));
+  }
+  const namedMonthDay = text.match(
+    /^(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{1,2})$/i,
+  );
+  if (namedMonthDay && defaultYear) {
+    const months = {
+      jan: 0,
+      january: 0,
+      feb: 1,
+      february: 1,
+      mar: 2,
+      march: 2,
+      apr: 3,
+      april: 3,
+      may: 4,
+      jun: 5,
+      june: 5,
+      jul: 6,
+      july: 6,
+      aug: 7,
+      august: 7,
+      sep: 8,
+      sept: 8,
+      september: 8,
+      oct: 9,
+      october: 9,
+      nov: 10,
+      november: 10,
+      dec: 11,
+      december: 11,
+    };
+    return toIsoDate(
+      new Date(Date.UTC(defaultYear, months[namedMonthDay[1].toLowerCase()], Number(namedMonthDay[2]))),
+    );
+  }
+  return null;
+}
+
+function asDate(value, textValue, defaultYear = null) {
+  const textDate = dateFromText(textValue, defaultYear) || dateFromText(value, defaultYear);
+  if (textDate) return textDate;
+
   if (typeof value === "number" && Number.isFinite(value) && value > 20000) {
     return excelSerialToIso(value);
   }
@@ -710,9 +801,9 @@ function rowNumber(row, names) {
   return key ? asNumber(row[key], row.$text[key]) : null;
 }
 
-function rowDate(row, names) {
+function rowDate(row, names, defaultYear = null) {
   const key = rowFieldKey(row, names);
-  return key ? asDate(row[key], row.$text[key]) : null;
+  return key ? asDate(row[key], row.$text[key], defaultYear) : null;
 }
 
 function rowBool(row, names) {
@@ -826,23 +917,97 @@ function extractActiveDreamTeam(range, latestDate) {
   return rows;
 }
 
-function extractLongDreamTeamDetail(range) {
-  return tableRows(range, ["campus"])
-    .map((row) => ({
-      date: rowDate(row, ["date", "sunday", "week", "service_date", "served_date"]),
-      campus: rowText(row, ["campus"]),
-      team: rowText(row, ["team", "serving_team", "dream_team", "role", "area", "ministry"]),
-      served: rowNumber(row, ["served", "serving", "count", "team_count", "attendance", "volunteers"]),
-      target: rowNumber(row, ["target", "goal", "needed", "health_target"]),
-      notes: rowText(row, ["notes"]),
-    }))
-    .filter((row) => row.date && row.campus && row.team && row.served !== null);
+function yearFromIso(iso) {
+  return Number(iso?.slice(0, 4)) || null;
 }
 
-function extractWideDreamTeamDetail(range) {
+function normalizeCompact(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function canonicalCampusName(value, campuses = []) {
+  const label = cleanText(value);
+  if (!label) return null;
+  const normalized = normalizeCompact(label);
+  const aliases = {
+    bwi: ["bwi"],
+    columbia: ["columbia", "col"],
+    flowers: ["flowers", "flo"],
+    ubc: ["ubc"],
+    fallschurch: ["fallschurch", "fc"],
+    silverspring: ["silverspring", "ss"],
+    northmeck: ["northmeck", "northmecklenburg", "nm", "clt", "concord"],
+    minthill: ["minthill", "mh"],
+  };
+  const campus = campuses.find((item) => {
+    const campusKey = normalizeCompact(item);
+    return campusKey === normalized || (aliases[campusKey] || []).includes(normalized);
+  });
+  return campus || label;
+}
+
+function extractLongDreamTeamDetail(range, defaultDate = null, campuses = []) {
   const values = matrix(range, "values");
   const text = matrix(range, "text");
   if (!values.length) return [];
+  const defaultYear = yearFromIso(defaultDate);
+  let headerRow = -1;
+  let dateCol = -1;
+  let campusCol = -1;
+  let teamCol = -1;
+  let servedCol = -1;
+  let targetCol = -1;
+
+  for (let row = 0; row < values.length; row += 1) {
+    const keys = (values[row] || []).map((_, col) => normalizeHeader(text[row]?.[col] || values[row]?.[col]));
+    dateCol = keys.findIndex((key) => ["date", "sunday", "week", "service_date", "served_date"].includes(key));
+    campusCol = keys.findIndex((key) => key === "campus");
+    teamCol = keys.findIndex((key) => ["team", "serving_team", "dream_team", "role", "area", "ministry"].includes(key));
+    servedCol = keys.findIndex((key) => ["served", "serving", "count", "team_count", "attendance", "volunteers"].includes(key));
+    targetCol = keys.findIndex((key) => ["target", "goal", "needed", "health_target"].includes(key));
+    if (campusCol >= 0 && teamCol >= 0 && servedCol >= 0) {
+      headerRow = row;
+      break;
+    }
+  }
+
+  if (headerRow < 0) return [];
+
+  const rows = [];
+  let lastDate = defaultDate;
+  let lastCampus = null;
+  for (let row = headerRow + 1; row < values.length; row += 1) {
+    const rowDateValue = dateCol >= 0 ? asDate(values[row]?.[dateCol], text[row]?.[dateCol], defaultYear) : null;
+    const rowCampus = campusCol >= 0 ? canonicalCampusName(text[row]?.[campusCol] || values[row]?.[campusCol], campuses) : null;
+    const team = cleanText(text[row]?.[teamCol] || values[row]?.[teamCol]);
+    const served = asNumber(values[row]?.[servedCol], text[row]?.[servedCol]);
+    const target = targetCol >= 0 ? asNumber(values[row]?.[targetCol], text[row]?.[targetCol]) : null;
+
+    if (rowDateValue) lastDate = rowDateValue;
+    if (rowCampus && !rowCampus.toLowerCase().startsWith("total")) lastCampus = rowCampus;
+    if (!team || served === null || !lastDate || !lastCampus) continue;
+    if (team.toLowerCase().startsWith("total")) continue;
+
+    rows.push({
+      date: lastDate,
+      campus: lastCampus,
+      team,
+      served: normalizeValue(served),
+      target,
+      notes: null,
+    });
+  }
+
+  return rows;
+}
+
+function extractWideDreamTeamDetail(range, defaultDate = null, campuses = []) {
+  const values = matrix(range, "values");
+  const text = matrix(range, "text");
+  if (!values.length) return [];
+  const defaultYear = yearFromIso(defaultDate);
 
   let headerRow = -1;
   let campusCol = -1;
@@ -855,7 +1020,7 @@ function extractWideDreamTeamDetail(range) {
     teamCol = keys.findIndex((key) => ["team", "serving_team", "dream_team", "role", "area", "ministry"].includes(key));
     dateColumns = [];
     for (let col = 0; col < (values[row]?.length || 0); col += 1) {
-      const date = asDate(values[row]?.[col], text[row]?.[col]);
+      const date = asDate(values[row]?.[col], text[row]?.[col], defaultYear);
       if (date) dateColumns.push({ col, date });
     }
     if (campusCol >= 0 && teamCol >= 0 && dateColumns.length) {
@@ -868,7 +1033,7 @@ function extractWideDreamTeamDetail(range) {
 
   const rows = [];
   for (let row = headerRow + 1; row < values.length; row += 1) {
-    const campus = cleanText(text[row]?.[campusCol] || values[row]?.[campusCol]);
+    const campus = canonicalCampusName(text[row]?.[campusCol] || values[row]?.[campusCol], campuses);
     const team = cleanText(text[row]?.[teamCol] || values[row]?.[teamCol]);
     if (!campus || !team) continue;
     for (const { col, date } of dateColumns) {
@@ -887,10 +1052,190 @@ function extractWideDreamTeamDetail(range) {
   return rows;
 }
 
-function extractDreamTeamDetail(range) {
-  const rows = extractLongDreamTeamDetail(range);
-  const wideRows = rows.length ? [] : extractWideDreamTeamDetail(range);
-  return [...rows, ...wideRows].sort(
+function extractTeamColumnDreamTeamDetail(range, defaultDate = null, campuses = []) {
+  const values = matrix(range, "values");
+  const text = matrix(range, "text");
+  if (!values.length) return [];
+  const defaultYear = yearFromIso(defaultDate);
+
+  let headerRow = -1;
+  let campusCol = -1;
+  let dateCol = -1;
+  let teamColumns = [];
+  const skipKeys = new Set([
+    "campus",
+    "date",
+    "sunday",
+    "week",
+    "service_date",
+    "notes",
+    "note",
+    "total",
+    "grand_total",
+    "target",
+    "goal",
+  ]);
+
+  for (let row = 0; row < values.length; row += 1) {
+    const keys = (values[row] || []).map((_, col) => normalizeHeader(text[row]?.[col] || values[row]?.[col]));
+    campusCol = keys.findIndex((key) => key === "campus");
+    dateCol = keys.findIndex((key) => ["date", "sunday", "week", "service_date"].includes(key));
+    const teamCol = keys.findIndex((key) => ["team", "serving_team", "dream_team", "role", "area", "ministry"].includes(key));
+    if (campusCol < 0 || (dateCol < 0 && !defaultDate) || teamCol >= 0) continue;
+
+    teamColumns = keys
+      .map((key, col) => ({ key, col, label: cleanText(text[row]?.[col] || values[row]?.[col]) }))
+      .filter((item) => item.key && !skipKeys.has(item.key) && item.col !== campusCol && item.col !== dateCol);
+    if (teamColumns.length >= 1) {
+      headerRow = row;
+      break;
+    }
+  }
+
+  if (headerRow < 0) return [];
+
+  const rows = [];
+  for (let row = headerRow + 1; row < values.length; row += 1) {
+    const date = dateCol >= 0 ? asDate(values[row]?.[dateCol], text[row]?.[dateCol], defaultYear) : defaultDate;
+    const campus = canonicalCampusName(text[row]?.[campusCol] || values[row]?.[campusCol], campuses);
+    if (!date || !campus) continue;
+
+    for (const { col, label } of teamColumns) {
+      const served = asNumber(values[row]?.[col], text[row]?.[col]);
+      if (served === null) continue;
+      rows.push({
+        date,
+        campus,
+        team: label,
+        served: normalizeValue(served),
+        target: null,
+        notes: null,
+      });
+    }
+  }
+  return rows;
+}
+
+function extractCampusColumnDreamTeamDetail(range, defaultDate = null, campuses = []) {
+  const values = matrix(range, "values");
+  const text = matrix(range, "text");
+  if (!values.length || !campuses.length) return [];
+  const defaultYear = yearFromIso(defaultDate);
+
+  let headerRow = -1;
+  let teamCol = -1;
+  let dateCol = -1;
+  let campusColumns = [];
+
+  for (let row = 0; row < values.length; row += 1) {
+    const keys = (values[row] || []).map((_, col) => normalizeHeader(text[row]?.[col] || values[row]?.[col]));
+    teamCol = keys.findIndex((key) => ["team", "serving_team", "dream_team", "role", "area", "ministry"].includes(key));
+    dateCol = keys.findIndex((key) => ["date", "sunday", "week", "service_date"].includes(key));
+    if (teamCol < 0) continue;
+
+    campusColumns = (values[row] || [])
+      .map((_, col) => ({
+        col,
+        campus: canonicalCampusName(text[row]?.[col] || values[row]?.[col], campuses),
+      }))
+      .filter((item) => item.col !== teamCol && item.col !== dateCol && campuses.includes(item.campus));
+    if (campusColumns.length) {
+      headerRow = row;
+      break;
+    }
+  }
+
+  if (headerRow < 0) return [];
+
+  const rows = [];
+  for (let row = headerRow + 1; row < values.length; row += 1) {
+    const team = cleanText(text[row]?.[teamCol] || values[row]?.[teamCol]);
+    if (!team) continue;
+    const date = dateCol >= 0 ? asDate(values[row]?.[dateCol], text[row]?.[dateCol], defaultYear) : defaultDate;
+    if (!date) continue;
+
+    for (const { col, campus } of campusColumns) {
+      const served = asNumber(values[row]?.[col], text[row]?.[col]);
+      if (served === null) continue;
+      rows.push({
+        date,
+        campus,
+        team,
+        served: normalizeValue(served),
+        target: null,
+        notes: null,
+      });
+    }
+  }
+  return rows;
+}
+
+function extractFixedDreamTeamDetail(range, defaultDate = null, campuses = []) {
+  const values = matrix(range, "values");
+  const text = matrix(range, "text");
+  if (!values.length) return [];
+  const defaultYear = yearFromIso(defaultDate);
+
+  let headerRow = -1;
+  for (let row = 0; row < values.length; row += 1) {
+    const keys = (values[row] || []).map((_, col) => normalizeHeader(text[row]?.[col] || values[row]?.[col]));
+    if (
+      keys[0] === "date" &&
+      keys[2] === "campus" &&
+      ["dream_team", "team", "serving_team"].includes(keys[3]) &&
+      ["served", "serving", "count"].includes(keys[4])
+    ) {
+      headerRow = row;
+      break;
+    }
+  }
+
+  if (headerRow < 0) return [];
+
+  const rows = [];
+  let lastDate = defaultDate;
+  let lastCampus = null;
+  for (let row = headerRow + 1; row < values.length; row += 1) {
+    const rowDateValue = asDate(values[row]?.[0], text[row]?.[0], defaultYear);
+    const rowCampus = canonicalCampusName(text[row]?.[2] || values[row]?.[2], campuses);
+    const team = cleanText(text[row]?.[3] || values[row]?.[3]);
+    const served = asNumber(values[row]?.[4], text[row]?.[4]);
+
+    if (rowDateValue) lastDate = rowDateValue;
+    if (rowCampus && !rowCampus.toLowerCase().startsWith("total")) lastCampus = rowCampus;
+    if (!lastDate || !lastCampus || !team || served === null) continue;
+    if (team.toLowerCase().startsWith("total")) continue;
+
+    rows.push({
+      date: lastDate,
+      campus: lastCampus,
+      team,
+      served: normalizeValue(served),
+      target: null,
+      notes: null,
+    });
+  }
+
+  return rows;
+}
+
+function dedupeDreamTeamDetail(rows) {
+  const seen = new Set();
+  return rows.filter((row) => {
+    const key = `${row.date}::${normalizeCompact(row.campus)}::${normalizeCompact(row.team)}::${row.served}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function extractDreamTeamDetail(range, defaultDate = null, campuses = []) {
+  const rows = extractLongDreamTeamDetail(range, defaultDate, campuses);
+  const fixedRows = extractFixedDreamTeamDetail(range, defaultDate, campuses);
+  const teamColumnRows = extractTeamColumnDreamTeamDetail(range, defaultDate, campuses);
+  const campusColumnRows = extractCampusColumnDreamTeamDetail(range, defaultDate, campuses);
+  const wideRows = extractWideDreamTeamDetail(range, defaultDate, campuses);
+  return dedupeDreamTeamDetail([...fixedRows, ...rows, ...teamColumnRows, ...campusColumnRows, ...wideRows]).sort(
     (a, b) => a.date.localeCompare(b.date) || a.campus.localeCompare(b.campus) || a.team.localeCompare(b.team),
   );
 }

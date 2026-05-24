@@ -1,5 +1,5 @@
-import dashboardData from "./dashboard-data.js";
-import { setupLiveExcel } from "./live-excel.js";
+import dashboardData from "./dashboard-data.js?v=20260524-dt-serving-targets";
+import { setupLiveExcel } from "./live-excel.js?v=20260524-dt-serving-targets";
 
 let data = dashboardData;
 
@@ -10,6 +10,7 @@ const state = {
   bigFiveEvent: null,
   bigFiveYear: null,
   healthMonth: null,
+  selectedDate: null,
 };
 
 const metricOrder = [
@@ -123,14 +124,6 @@ const metricRateTargets = {
     emphasis: "Marketing and compelling communication",
     key: "Growth and invite vision",
   },
-  dreamTeam: {
-    label: "Dream Team",
-    lower: 33,
-    type: "higher",
-    ministry: "serving team",
-    emphasis: "Fully Staffed Dream Team",
-    key: "Mature and galvanizing leaders",
-  },
 };
 
 const growthKeys = [
@@ -233,10 +226,16 @@ const els = {
   trendTitle: document.querySelector("#trendTitle"),
   trendMeta: document.querySelector("#trendMeta"),
   trendInsightLayout: document.querySelector("#trendInsightLayout"),
+  chartPanel: document.querySelector(".chart-panel"),
   lineChart: document.querySelector("#lineChart"),
+  insightsPanel: document.querySelector(".insights-panel"),
+  barKicker: document.querySelector("#barKicker"),
   barTitle: document.querySelector("#barTitle"),
   barMeta: document.querySelector("#barMeta"),
   barChart: document.querySelector("#barChart"),
+  dreamTeamCampusPanel: document.querySelector("#dreamTeamCampusPanel"),
+  dreamTeamCampusMeta: document.querySelector("#dreamTeamCampusMeta"),
+  dreamTeamCampusChart: document.querySelector("#dreamTeamCampusChart"),
   comparisonGrid: document.querySelector("#comparisonGrid"),
   volatilityMeta: document.querySelector("#volatilityMeta"),
   volatilityChart: document.querySelector("#volatilityChart"),
@@ -483,6 +482,8 @@ function setupControls() {
   els.refreshExcelButton.addEventListener("click", async () => {
     await runLiveAction(() => liveExcel?.refresh());
   });
+
+  window.addEventListener("resize", syncTakeawayLayout);
 }
 
 function syncCampusOptions() {
@@ -648,6 +649,90 @@ function getMetricPoints(metricKey, campus) {
   return Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
 }
 
+function selectedPointContext(points) {
+  if (!points.length) {
+    return {
+      index: -1,
+      current: null,
+      previous: null,
+      previousFour: [],
+      baseline: null,
+      vsBaseline: null,
+      weekChange: null,
+      isArchive: false,
+    };
+  }
+
+  const selectedIndex = state.selectedDate
+    ? points.findIndex((point) => point.date === state.selectedDate)
+    : -1;
+  const index = selectedIndex >= 0 ? selectedIndex : points.length - 1;
+  const current = points[index] || null;
+  const previous = index > 0 ? points[index - 1] : null;
+  const previousFour = points
+    .slice(0, index)
+    .filter((point) => point.eventType !== "holiday" && point.eventType !== "weather")
+    .slice(-4);
+  const baseline =
+    previousFour.length > 0
+      ? previousFour.reduce((sum, point) => sum + point.value, 0) / previousFour.length
+      : null;
+
+  return {
+    index,
+    current,
+    previous,
+    previousFour,
+    baseline,
+    vsBaseline: current && baseline ? pctChange(current.value, baseline) : null,
+    weekChange: current && previous ? pctChange(current.value, previous.value) : null,
+    isArchive: Boolean(state.selectedDate && current?.date === state.selectedDate),
+  };
+}
+
+function metricPointContext(metricKey, campus = state.campus) {
+  return selectedPointContext(getMetricPoints(metricKey, campus));
+}
+
+function currentMetricDate(metricKey = state.metric, campus = state.campus) {
+  return metricPointContext(metricKey, campus).current?.date || null;
+}
+
+function activeArchiveDate(metricKey = state.metric, campus = state.campus) {
+  const context = metricPointContext(metricKey, campus);
+  return context.isArchive ? context.current.date : null;
+}
+
+function pointContextForCampusDate(metricKey, campus, date) {
+  const points = getMetricPoints(metricKey, campus);
+  const index = points.findIndex((point) => point.date === date);
+  if (index < 0) return { current: null, previous: null, weekChange: null };
+  const current = points[index];
+  const previous = index > 0 ? points[index - 1] : null;
+  return {
+    current,
+    previous,
+    weekChange: current && previous ? pctChange(current.value, previous.value) : null,
+  };
+}
+
+function valuesByCampusOnDate(metricKey, date) {
+  if (!date) return [];
+  return data.campuses
+    .map((campus) => {
+      const context = pointContextForCampusDate(metricKey, campus, date);
+      return {
+        campus,
+        value: context.current?.value ?? null,
+        date,
+        previous: context.previous?.value ?? null,
+        weekChangePct: context.weekChange,
+      };
+    })
+    .filter((row) => isFiniteNumber(row.value))
+    .sort((a, b) => b.value - a.value);
+}
+
 function latestByCampus(metricKey) {
   const metric = data.metrics[metricKey];
   const rows = [];
@@ -663,15 +748,26 @@ function latestByCampus(metricKey) {
   return rows.sort((a, b) => b.value - a.value);
 }
 
+function comparisonRowsByCampus(metricKey, date = currentMetricDate(metricKey)) {
+  return date ? valuesByCampusOnDate(metricKey, date) : latestByCampus(metricKey);
+}
+
 function isFiniteNumber(value) {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-function latestAttendancePoint(campus) {
-  return (data.metrics.attendance?.series?.[campus] || [])
+function attendancePointForCampus(campus, preferredDate = state.selectedDate) {
+  const points = (data.metrics.attendance?.series?.[campus] || [])
     .filter((point) => point.isSunday && typeof point.value === "number" && Number.isFinite(point.value) && point.value > 0)
-    .filter((point) => state.showEvents || point.eventType === "normal")
-    .at(-1);
+    .filter((point) => state.showEvents || point.eventType === "normal");
+  if (preferredDate) {
+    return points.find((point) => point.date === preferredDate) || null;
+  }
+  return points.at(-1) || null;
+}
+
+function latestAttendancePoint(campus) {
+  return attendancePointForCampus(campus, null);
 }
 
 function pointForCampusDate(metricKey, campus, date) {
@@ -693,7 +789,7 @@ function rateRowsForMetric(metricKey, campusScope = state.campus) {
   const campuses = campusScope === "All Campuses" ? data.campuses : [campusScope];
   return campuses
     .map((campus) => {
-      const attendance = latestAttendancePoint(campus);
+      const attendance = attendancePointForCampus(campus);
       const metric = pointForCampusDate(metricKey, campus, attendance?.date);
       const ratio = attendance?.value > 0 && metric ? (metric.value / attendance.value) * 100 : null;
       return {
@@ -728,37 +824,61 @@ function rateSeverity(ratio, target) {
 }
 
 function statForCampus(campus) {
-  return data.campusStats.find((item) => item.campus === campus);
+  return attendanceCampusRowsForContext().find((item) => item.campus === campus);
 }
 
 function totalsDiagnostics(points) {
-  const latest = points.at(-1);
-  const previous = points.at(-2);
-  const weekChange = latest && previous ? pctChange(latest.value, previous.value) : null;
-  const previousFour = points
-    .slice(0, -1)
-    .filter((point) => point.eventType !== "holiday" && point.eventType !== "weather")
-    .slice(-4);
-  const baseline =
-    previousFour.length > 0
-      ? previousFour.reduce((sum, point) => sum + point.value, 0) / previousFour.length
-      : null;
-  const vsBaseline = latest && baseline ? pctChange(latest.value, baseline) : null;
-  return { latest, previous, weekChange, baseline, vsBaseline };
+  const context = selectedPointContext(points);
+  return {
+    latest: context.current,
+    previous: context.previous,
+    weekChange: context.weekChange,
+    baseline: context.baseline,
+    vsBaseline: context.vsBaseline,
+  };
 }
 
-function attendanceSundayCount(campus) {
+function attendanceSundayCount(campus, throughDate = null) {
   return (data.metrics.attendance?.series?.[campus] || []).filter(
-    (point) => point.isSunday && typeof point.value === "number" && Number.isFinite(point.value) && point.value > 0,
+    (point) =>
+      point.isSunday &&
+      typeof point.value === "number" &&
+      Number.isFinite(point.value) &&
+      point.value > 0 &&
+      (!throughDate || point.date <= throughDate),
   ).length;
 }
 
+function attendanceCampusRowsForContext() {
+  return data.campuses
+    .map((campus) => {
+      const points = getMetricPoints("attendance", campus);
+      const context = selectedPointContext(points);
+      const current = context.current;
+      if (!current) return null;
+      return {
+        campus,
+        sundayCount: points.length,
+        latest: current.value,
+        latestDate: current.date,
+        previous: context.previous?.value ?? null,
+        previousDate: context.previous?.date ?? null,
+        weekChangePct: context.weekChange,
+        previous4Avg: context.baseline ? Math.round(context.baseline * 10) / 10 : null,
+        vsPrevious4Pct: context.vsBaseline,
+      };
+    })
+    .filter(Boolean);
+}
+
 function movementStats(row) {
+  const throughDate = activeArchiveDate("attendance") || null;
   const cleanedSwings = (row.swings || []).filter(
     (swing) =>
       Number(swing.fromValue || 0) > 0 &&
       Number(swing.toValue || 0) > 0 &&
-      Math.abs(Number(swing.pct || 0)) >= 10,
+      Math.abs(Number(swing.pct || 0)) >= 10 &&
+      (!throughDate || swing.toDate <= throughDate),
   );
   const hasSwingDetails = Array.isArray(row.swings);
   const qualifyingSwings = hasSwingDetails ? cleanedSwings : [];
@@ -771,7 +891,7 @@ function movementStats(row) {
     hasSwingDetails
       ? qualifyingSwings.filter((swing) => Number(swing.pct || 0) <= -10).length
       : row.negativeSwing10Count ?? 0;
-  const seriesSundayCount = attendanceSundayCount(row.campus);
+  const seriesSundayCount = attendanceSundayCount(row.campus, throughDate);
   const sundayCount = seriesSundayCount || row.sundayCount || qualifyingSwings.length + 1;
 
   return {
@@ -784,19 +904,24 @@ function movementStats(row) {
 }
 
 function renderKpis(points) {
-  const latest = points.at(-1);
-  const previous = points.at(-2);
-  const weekChange = latest && previous ? pctChange(latest.value, previous.value) : null;
+  const context = selectedPointContext(points);
+  const latest = context.current;
+  const previous = context.previous;
+  const weekChange = context.weekChange;
   const totalDiag = totalsDiagnostics(points);
 
   const baselineDelta = totalDiag.vsBaseline;
+  const campuses = state.campus === "All Campuses" ? data.campuses : [state.campus];
+  const priorYear = state.metric === "attendance" && latest ? nearestPriorAttendance(latest.date, campuses) : null;
 
   const yoy =
     state.metric !== "attendance"
       ? null
-      : state.campus === "All Campuses"
-        ? pctChange(latest?.value, data.yoy?.total)
-        : pctChange(latest?.value, data.yoy?.byCampus?.[state.campus]);
+      : priorYear
+        ? pctChange(latest?.value, priorYear.value)
+        : state.campus === "All Campuses"
+          ? pctChange(latest?.value, data.yoy?.total)
+          : pctChange(latest?.value, data.yoy?.byCampus?.[state.campus]);
 
   const latestLabel =
     state.campus === "All Campuses"
@@ -807,7 +932,9 @@ function renderKpis(points) {
     {
       label: latestLabel,
       value: formatNumber(latest?.value),
-      note: latest ? `Most recent Sunday, ${shortDate(latest.date)}` : "No data",
+      note: latest
+        ? `${context.isArchive ? "Sunday archive" : "Most recent Sunday"}, ${shortDate(latest.date)}`
+        : "No data",
     },
     {
       label: "Since last Sunday",
@@ -826,8 +953,8 @@ function renderKpis(points) {
       value: formatPct(yoy),
       valueClass: toneClass(yoy),
       note:
-        state.metric === "attendance" && data.yoy
-          ? `Same season last year: ${shortDate(data.yoy.matchedDate)}`
+        state.metric === "attendance" && (priorYear || data.yoy)
+          ? `Same season last year: ${shortDate(priorYear?.date || data.yoy.matchedDate)}`
           : "Shown on attendance only",
     },
   ];
@@ -891,10 +1018,49 @@ function metricChangeOnDates(metricKey, date, previousDate) {
   };
 }
 
-function dreamTeamTeamTotals(date, campusScope = state.campus) {
-  const rows = (data.dreamTeamDetail || []).filter(
-    (row) => row.date === date && (campusScope === "All Campuses" || row.campus === campusScope),
+function campusNameMatches(value, campus) {
+  if (campus === "All Campuses") return true;
+  const normalizedValue = normalizeText(value);
+  const terms = [campus, ...campusAliasTerms(campus)].map(normalizeText);
+  return terms.includes(normalizedValue);
+}
+
+function dreamTeamDetailRows(date, campusScope = state.campus) {
+  return (data.dreamTeamDetail || []).filter(
+    (row) => row.date === date && campusNameMatches(row.campus, campusScope),
   );
+}
+
+function dreamTeamDetailDate(campusScope = state.campus) {
+  if (state.selectedDate && dreamTeamDetailRows(state.selectedDate, campusScope).length) {
+    return state.selectedDate;
+  }
+  return (
+    (data.dreamTeamDetail || [])
+      .filter((row) => campusNameMatches(row.campus, campusScope))
+      .map((row) => row.date)
+      .filter(Boolean)
+      .sort()
+      .at(-1) || currentMetricDate("dreamTeam", campusScope)
+  );
+}
+
+function dreamTeamDetailStats(campusScope = state.campus) {
+  const rows = (data.dreamTeamDetail || []).filter((row) => campusNameMatches(row.campus, campusScope));
+  const dates = Array.from(new Set(rows.map((row) => row.date).filter(Boolean))).sort();
+  const campuses = Array.from(new Set(rows.map((row) => row.campus).filter(Boolean))).sort();
+  return { rows, rowCount: rows.length, dates, campuses };
+}
+
+function dreamTeamDetailDiagnostic(date, campusScope = state.campus) {
+  const stats = dreamTeamDetailStats(campusScope);
+  if (!stats.rowCount) return "DT detail loaded 0 rows from Sunday - DT Detail.";
+  const dateList = stats.dates.slice(-3).map(shortDate).join(", ");
+  return `DT detail loaded ${formatNumber(stats.rowCount)} rows, ${stats.campuses.length} campuses, dates: ${dateList || "--"}.`;
+}
+
+function dreamTeamTeamTotals(date, campusScope = state.campus) {
+  const rows = dreamTeamDetailRows(date, campusScope);
   const byTeam = new Map();
   for (const row of rows) {
     const current = byTeam.get(row.team) || { team: row.team, served: 0, target: 0, hasTarget: false };
@@ -908,7 +1074,21 @@ function dreamTeamTeamTotals(date, campusScope = state.campus) {
   return Array.from(byTeam.values()).sort((a, b) => b.served - a.served);
 }
 
+function dreamTeamCampusRowsFromDetail(date) {
+  const byCampus = new Map();
+  for (const row of dreamTeamDetailRows(date, "All Campuses")) {
+    const current = byCampus.get(row.campus) || 0;
+    byCampus.set(row.campus, current + (row.served || 0));
+  }
+  return Array.from(byCampus.entries())
+    .map(([campus, value]) => ({ campus, value, date }))
+    .sort((a, b) => b.value - a.value);
+}
+
 function dreamTeamTeamChanges(date, previousDate, campusScope = state.campus) {
+  if (!dreamTeamDetailRows(date, campusScope).length || !dreamTeamDetailRows(previousDate, campusScope).length) {
+    return [];
+  }
   const current = new Map(dreamTeamTeamTotals(date, campusScope).map((row) => [row.team, row]));
   const previous = new Map(dreamTeamTeamTotals(previousDate, campusScope).map((row) => [row.team, row]));
   const teams = new Set([...current.keys(), ...previous.keys()]);
@@ -954,6 +1134,18 @@ function chartContextLines(point, index, points) {
   return [];
 }
 
+function pointChangeSummary(point, index, points) {
+  const previous = points[index - 1];
+  if (!previous) return null;
+  const delta = point.value - previous.value;
+  const changePct = pctChange(point.value, previous.value);
+  if (!isFiniteNumber(delta) || !isFiniteNumber(changePct)) return null;
+  return {
+    label: `${formatSignedNumber(delta)} (${formatPct(changePct)})`,
+    tone: toneClass(changePct),
+  };
+}
+
 function renderLineChart(points) {
   if (!points.length) {
     els.lineChart.innerHTML = `<div class="empty">No points available.</div>`;
@@ -979,7 +1171,7 @@ function renderLineChart(points) {
   } Z`;
   const gridValues = Array.from({ length: 5 }, (_, index) => yMin + ((yMax - yMin) / 4) * index);
   const labelIndexes = new Set([0, Math.floor((points.length - 1) / 2), points.length - 1]);
-  const tooltipWidth = 202;
+  const tooltipWidth = 250;
 
   const svg = `
     <svg viewBox="0 0 ${width} ${height}" role="img">
@@ -997,6 +1189,7 @@ function renderLineChart(points) {
       ${points
         .map((point, index) => {
           const noteLines = [...chartNoteLines(point.event), ...chartContextLines(point, index, points)].slice(0, 4);
+          const pointChange = pointChangeSummary(point, index, points);
           const hasNote = noteLines.length > 0;
           const isEvent = hasNote || point.eventType !== "normal";
           const cx = x(index);
@@ -1008,7 +1201,14 @@ function renderLineChart(points) {
             <g class="chart-point-tooltip" data-tooltip-index="${index}" transform="translate(${tooltipX} ${tooltipY})">
               <rect width="${tooltipWidth}" height="${tooltipHeight}" rx="7"></rect>
               <text x="12" y="20">${escapeHtml(shortDate(point.date))}</text>
-              <text class="tooltip-number" x="12" y="38">${escapeHtml(formatNumber(point.value))}</text>
+              <text class="tooltip-number" x="12" y="38">
+                <tspan>${escapeHtml(formatNumber(point.value))}</tspan>
+                ${
+                  pointChange
+                    ? `<tspan class="tooltip-change ${pointChange.tone}" dx="8">${escapeHtml(pointChange.label)}</tspan>`
+                    : ""
+                }
+              </text>
               ${noteLines
                 .map(
                   (line, lineIndex) =>
@@ -1016,10 +1216,12 @@ function renderLineChart(points) {
                 )
                 .join("")}
             </g>
-            <circle class="point ${isEvent ? "event" : ""}" data-point-index="${index}" tabindex="0" aria-label="${escapeHtml(
+            <circle class="point ${isEvent ? "event" : ""} ${
+              state.selectedDate === point.date ? "selected" : ""
+            }" data-point-index="${index}" data-point-date="${point.date}" tabindex="0" aria-label="${escapeHtml(
               `${shortDate(point.date)} ${formatNumber(point.value)}${point.event ? ` ${point.event}` : ""}`,
             )}" cx="${cx}" cy="${cy}" r="${
-              isEvent ? 5 : 4
+              state.selectedDate === point.date ? 6 : isEvent ? 5 : 4
             }">
               <title>${escapeHtml(shortDate(point.date))}: ${escapeHtml(formatNumber(point.value))}${
                 point.event ? `, ${escapeHtml(point.event)}` : ""
@@ -1067,26 +1269,74 @@ function wireLineChartTooltips() {
     point.addEventListener("mouseleave", hideTooltip);
     point.addEventListener("blur", hideTooltip);
     point.addEventListener("click", () => {
-      pinnedIndex = pinnedIndex === point.dataset.pointIndex ? null : point.dataset.pointIndex;
-      if (pinnedIndex === null) {
-        for (const tooltip of tooltips) tooltip.classList.remove("active");
-      } else {
-        showTooltip(point.dataset.pointIndex, true);
-      }
+      state.selectedDate = state.selectedDate === point.dataset.pointDate ? null : point.dataset.pointDate;
+      updateDashboard();
     });
   }
 }
 
+function renderCampusBarChart(container, rows, { emptyMessage = "No campus detail available for this Sunday." } = {}) {
+  if (!container) return;
+  if (!rows.length) {
+    container.innerHTML = `<div class="empty">${emptyMessage}</div>`;
+    return;
+  }
+
+  const max = Math.max(...rows.map((row) => row.value), 1);
+  container.innerHTML = rows
+    .map((row) => {
+      const width = Math.max(3, (row.value / max) * 100);
+      const selected = state.campus === row.campus;
+      return `
+        <div class="bar-row ${selected ? "active" : ""}">
+          <div class="bar-label" title="${row.campus}">${row.campus}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${width}%"></div></div>
+          <div class="bar-value">${formatNumber(row.value)}</div>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function renderDreamTeamCampusBreakdown(selectedDate) {
+  const show = state.metric === "dreamTeam" && state.campus === "All Campuses";
+  els.dreamTeamCampusPanel?.classList.toggle("is-hidden", !show);
+  if (!show) return;
+
+  const detailRows = dreamTeamCampusRowsFromDetail(selectedDate);
+  const rows = detailRows.length ? detailRows : comparisonRowsByCampus("dreamTeam", selectedDate);
+  if (els.dreamTeamCampusMeta) {
+    els.dreamTeamCampusMeta.textContent = selectedDate
+      ? `${rows.length} ${rows.length === 1 ? "campus" : "campuses"} · ${shortDate(selectedDate)}`
+      : "";
+  }
+  renderCampusBarChart(els.dreamTeamCampusChart, rows);
+}
+
 function renderBars() {
+  const selectedDate = state.metric === "dreamTeam" ? dreamTeamDetailDate() : currentMetricDate(state.metric);
+  const isArchive = Boolean(state.selectedDate && selectedDate === state.selectedDate);
+  renderDreamTeamCampusBreakdown(selectedDate);
+  if (els.barKicker) {
+    els.barKicker.textContent =
+      state.metric === "dreamTeam" ? "Dream Team Detail" : isArchive ? "Sunday Archive" : "Most Recent Sunday";
+  }
+
   if (state.metric === "dreamTeam") {
-    const points = getMetricPoints("dreamTeam", state.campus);
-    const latestDate = points.at(-1)?.date;
+    const latestDate = selectedDate;
     const teamRows = latestDate ? dreamTeamTeamTotals(latestDate) : [];
+    const campusCount = latestDate
+      ? new Set(dreamTeamDetailRows(latestDate, state.campus).map((row) => row.campus)).size
+      : 0;
+    els.barTitle.textContent =
+      state.campus === "All Campuses" ? "Dream Team by Team" : `${state.campus} Dream Team by Team`;
+    els.barMeta.textContent = latestDate
+      ? `${teamRows.length} ${teamRows.length === 1 ? "team" : "teams"} · ${campusCount} ${
+          campusCount === 1 ? "campus" : "campuses"
+        } · ${shortDate(latestDate)}`
+      : "";
     if (teamRows.length) {
       const max = Math.max(...teamRows.map((row) => row.served), 1);
-      els.barTitle.textContent =
-        state.campus === "All Campuses" ? "Dream Team by Team" : `${state.campus} Dream Team by Team`;
-      els.barMeta.textContent = latestDate ? shortDate(latestDate) : "";
       els.barChart.innerHTML = teamRows
         .map((row) => {
           const width = Math.max(3, (row.served / max) * 100);
@@ -1102,27 +1352,27 @@ function renderBars() {
         .join("");
       return;
     }
+
+    els.barChart.innerHTML = `
+      <div class="empty">No Dream Team team detail found for ${
+        latestDate ? shortDate(latestDate) : "this Sunday"
+      }. ${dreamTeamDetailDiagnostic(latestDate)}</div>
+    `;
+    return;
   }
 
-  const rows = latestByCampus(state.metric);
-  const max = Math.max(...rows.map((row) => row.value), 1);
-  const latestDate = rows[0]?.date;
+  const rows = comparisonRowsByCampus(state.metric, selectedDate);
+  if (!rows.length) {
+    els.barTitle.textContent = `${metricLabels[state.metric]} by Campus`;
+    els.barMeta.textContent = selectedDate ? shortDate(selectedDate) : "";
+    renderCampusBarChart(els.barChart, rows);
+    return;
+  }
+  const latestDate = selectedDate || rows[0]?.date;
 
   els.barTitle.textContent = `${metricLabels[state.metric]} by Campus`;
   els.barMeta.textContent = latestDate ? shortDate(latestDate) : "";
-  els.barChart.innerHTML = rows
-    .map((row) => {
-      const width = Math.max(3, (row.value / max) * 100);
-      const selected = state.campus === row.campus;
-      return `
-        <div class="bar-row ${selected ? "active" : ""}">
-          <div class="bar-label" title="${row.campus}">${row.campus}</div>
-          <div class="bar-track"><div class="bar-fill" style="width:${width}%"></div></div>
-          <div class="bar-value">${formatNumber(row.value)}</div>
-        </div>
-      `;
-    })
-    .join("");
+  renderCampusBarChart(els.barChart, rows);
 }
 
 function renderVolatility() {
@@ -1134,17 +1384,23 @@ function renderVolatility() {
   if (!rows.length) {
     els.volatilityChart.innerHTML = `<div class="empty">Connect Excel to load attendance movement.</div>`;
     if (els.volatilityMeta) {
+      const archiveDate = activeArchiveDate("attendance");
+      const archiveLabel = archiveDate ? `through ${shortDate(archiveDate)}` : "YTD";
       els.volatilityMeta.textContent =
-        state.campus === "All Campuses" ? "YTD, 10%+ from previous Sunday" : `${state.campus} only`;
+        state.campus === "All Campuses"
+          ? `${archiveLabel}, 10%+ from previous Sunday`
+          : `${state.campus} · ${archiveLabel}`;
     }
     return;
   }
 
   if (els.volatilityMeta) {
+    const archiveDate = activeArchiveDate("attendance");
+    const archiveLabel = archiveDate ? `through ${shortDate(archiveDate)}` : "YTD";
     els.volatilityMeta.textContent =
       state.campus === "All Campuses"
-        ? "All campuses · YTD, 10%+ from previous Sunday"
-        : `${state.campus} · YTD, 10%+ from previous Sunday`;
+        ? `All campuses · ${archiveLabel}, 10%+ from previous Sunday`
+        : `${state.campus} · ${archiveLabel}, 10%+ from previous Sunday`;
   }
 
   const totals = rows.reduce(
@@ -1199,7 +1455,7 @@ function renderVolatility() {
 }
 
 function attendanceOpportunityInsights() {
-  const stats = data.campusStats.filter((row) => isFiniteNumber(row.latest));
+  const stats = attendanceCampusRowsForContext().filter((row) => isFiniteNumber(row.latest));
   if (!stats.length) return [];
 
   if (state.campus !== "All Campuses") {
@@ -1224,7 +1480,7 @@ function attendanceOpportunityInsights() {
     if (barrier) {
       insights.push({
         title: `Growth barrier lens: ${barrier.label}`,
-        body: `${barrier.issue} Emphasis: ${barrier.emphasis}.`,
+        body: `This attendance range usually needs a clear focus on Sunday quality, team strength, and next-step follow-up.`,
         severity: barrier.max <= 1000 ? "warning" : "info",
       });
     }
@@ -1287,16 +1543,10 @@ function attendanceOpportunityInsights() {
   if (topBarrier) {
     insights.push({
       title: `Most common growth barrier: ${topBarrier.label}`,
-      body: `${topBarrier.campuses.slice(0, 3).join(", ")} point to this barrier. ${topBarrier.issue} Emphasis: ${topBarrier.emphasis}.`,
+      body: `${topBarrier.campuses.slice(0, 3).join(", ")} are in this attendance range. These campuses may need the same kind of support plan.`,
       severity: topBarrier.max <= 1000 ? "warning" : "info",
     });
   }
-
-  insights.push({
-    title: "5 Keys diagnosis",
-    body: `When attendance is down or flat, read it through: ${growthKeys.join(", ")}.`,
-    severity: "info",
-  });
 
   return insights;
 }
@@ -1320,7 +1570,7 @@ function metricOpportunityInsights() {
 
   insights.push({
     title: `${label} is ${formatHealthPct(total.ratio)} of attendance`,
-    body: `${label} is ${statusText}. This connects the attendance number to the ${target.ministry} lane instead of reading the raw count alone. Emphasis: ${target.emphasis}.`,
+    body: `${label} is ${statusText}. Watch whether weekend attendance is turning into healthy ${target.ministry} movement.`,
     severity: rateSeverity(total.ratio, target),
   });
 
@@ -1354,7 +1604,7 @@ function metricOpportunityInsights() {
       const spread = highest.ratio - lowest.ratio;
       insights.push({
         title: `Campus spread is ${formatHealthPct(spread)}`,
-        body: `${label} ranges from ${formatHealthPct(lowest.ratio)} at ${lowest.campus} to ${formatHealthPct(highest.ratio)} at ${highest.campus}. Large spreads usually point to a training or process opportunity.`,
+        body: `${label} ranges from ${formatHealthPct(lowest.ratio)} at ${lowest.campus} to ${formatHealthPct(highest.ratio)} at ${highest.campus}. Compare campus practices where the gap is widest.`,
         severity: spread > Math.max(4, target.lower * 0.75) ? "warning" : "info",
       });
     }
@@ -1396,7 +1646,7 @@ function growthLeverInsights() {
   return [
     {
       title: `Growth lever to watch: ${top.label}`,
-      body: `${top.label} is ${formatHealthPct(top.ratio)} of attendance against a ${targetText(top.target)} target. This ties to ${top.target.key} and the emphasis area: ${top.target.emphasis}.`,
+      body: `${top.label} is ${formatHealthPct(top.ratio)} of attendance against a ${targetText(top.target)} target. This is the clearest ministry lane to strengthen next.`,
       severity: top.ratio < top.target.lower * 0.75 ? "critical" : "warning",
     },
   ];
@@ -1407,9 +1657,10 @@ function metricCampusMovementRows(metricKey) {
   return campuses
     .map((campus) => {
       const points = getMetricPoints(metricKey, campus);
-      const latest = points.at(-1);
-      const previous = points.at(-2);
-      const changePct = latest && previous ? pctChange(latest.value, previous.value) : null;
+      const context = selectedPointContext(points);
+      const latest = context.current;
+      const previous = context.previous;
+      const changePct = context.weekChange;
       return {
         campus,
         latest,
@@ -1443,8 +1694,8 @@ function metricMovementInsights() {
 
   const writeCampusPrompt = (row, direction) =>
     state.campus === "All Campuses"
-      ? `${row.campus} moved ${formatPct(row.changePct)} (${formatSignedNumber(row.delta)}) from the previous Sunday. Ask what was different that day and whether the practice can be repeated or the gap can be fixed.`
-      : `${state.campus} moved ${formatPct(row.changePct)} (${formatSignedNumber(row.delta)}) from the previous Sunday. Look at service flow, team readiness, communication, and reporting accuracy for that Sunday.`;
+      ? `${row.campus} moved ${formatPct(row.changePct)} (${formatSignedNumber(row.delta)}) from the previous Sunday. Ask what changed and whether it should be repeated or corrected.`
+      : `${state.campus} moved ${formatPct(row.changePct)} (${formatSignedNumber(row.delta)}) from the previous Sunday. Review what changed in the weekend experience and reporting.`;
 
   if (surged.length) {
     const top = surged[0];
@@ -1493,8 +1744,9 @@ function metricMovementInsights() {
 
 function attendanceCategoryContributionInsights() {
   const points = getMetricPoints("attendance", state.campus);
-  const latest = points.at(-1);
-  const previous = points.at(-2);
+  const context = selectedPointContext(points);
+  const latest = context.current;
+  const previous = context.previous;
   if (!latest || !previous) return [];
 
   const attendanceChange = pctChange(latest.value, previous.value);
@@ -1514,7 +1766,7 @@ function attendanceCategoryContributionInsights() {
       title: attendanceChange < 0 ? "What likely contributed to the attendance dip" : "What rose with attendance",
       body: `${movers
         .map((row) => `${row.label} ${formatSignedNumber(row.delta)} (${formatPct(row.changePct)})`)
-        .join(", ")}. This is not automatic cause-and-effect, but it tells the XP what to investigate first.`,
+        .join(", ")}. These areas moved in the same direction as attendance and are worth reviewing first.`,
       severity: attendanceChange < 0 ? "warning" : "info",
       category: "focus",
     },
@@ -1524,12 +1776,39 @@ function attendanceCategoryContributionInsights() {
 function dreamTeamDetailInsights() {
   if (state.metric !== "dreamTeam") return [];
   const points = getMetricPoints("dreamTeam", state.campus);
-  const latest = points.at(-1);
-  const previous = points.at(-2);
-  if (!latest || !previous) return [];
+  const context = selectedPointContext(points);
+  const latest = context.current;
+  const previous = context.previous;
+  if (!latest) return [];
+
+  const currentTeams = dreamTeamTeamTotals(latest.date);
+  if (!currentTeams.length) return [];
+  if (!previous) {
+    return [
+      {
+        title: `Serving team detail for ${shortDate(latest.date)}`,
+        body: `Largest teams: ${currentTeams
+          .slice(0, 3)
+          .map((row) => `${row.team} (${formatNumber(row.served)})`)
+          .join(", ")}.`,
+        severity: "info",
+      },
+    ];
+  }
 
   const changes = dreamTeamTeamChanges(latest.date, previous.date);
-  if (!changes.length) return [];
+  if (!changes.length) {
+    return [
+      {
+        title: `Serving team detail for ${shortDate(latest.date)}`,
+        body: `Largest teams: ${currentTeams
+          .slice(0, 3)
+          .map((row) => `${row.team} (${formatNumber(row.served)})`)
+          .join(", ")}. Add the prior Sunday by team to see which teams drove the change.`,
+        severity: "info",
+      },
+    ];
+  }
   const down = changes.filter((row) => row.delta < 0).sort((a, b) => a.delta - b.delta)[0];
   const up = changes.filter((row) => row.delta > 0).sort((a, b) => b.delta - a.delta)[0];
   const targetMiss = changes
@@ -1542,7 +1821,7 @@ function dreamTeamDetailInsights() {
       title: `${down.team} drove the largest Dream Team drop`,
       body: `${down.team} was ${formatSignedNumber(down.delta)} from the previous Sunday (${formatPct(
         down.changePct,
-      )}). Ask whether scheduling, call-outs, team leadership, or reporting changed that day.`,
+      )}). Review scheduling, call-outs, and reporting for that team.`,
       severity: Math.abs(down.changePct || 0) >= 25 ? "critical" : "warning",
     });
   }
@@ -1552,7 +1831,7 @@ function dreamTeamDetailInsights() {
       title: `${up.team} had the strongest serving lift`,
       body: `${up.team} was ${formatSignedNumber(up.delta)} from the previous Sunday (${formatPct(
         up.changePct,
-      )}). Find out what made that team stronger and whether the same move can help other teams.`,
+      )}). Find out what helped that team and whether it can be repeated.`,
       severity: "info",
     });
   }
@@ -1591,19 +1870,13 @@ function formatTrendMove(change) {
 }
 
 function campusMovementRows() {
-  return data.campuses
-    .map((campus) => {
-      const points = getMetricPoints("attendance", campus);
-      const latest = points.at(-1);
-      const previous = points.at(-2);
-      const changePct = latest && previous ? pctChange(latest.value, previous.value) : null;
-      return {
-        campus,
-        latest,
-        previous,
-        changePct,
-      };
-    })
+  return attendanceCampusRowsForContext()
+    .map((row) => ({
+      campus: row.campus,
+      latest: row.latestDate ? { date: row.latestDate, value: row.latest } : null,
+      previous: row.previousDate ? { date: row.previousDate, value: row.previous } : null,
+      changePct: row.weekChangePct,
+    }))
     .filter((row) => row.latest && row.previous && isFiniteNumber(row.changePct));
 }
 
@@ -1616,11 +1889,12 @@ function movementCampusList(rows, limit = 3) {
 
 function allCampusAttendanceTrendInsights() {
   const points = getMetricPoints("attendance", "All Campuses");
-  const latest = points.at(-1);
-  const previous = points.at(-2);
+  const context = selectedPointContext(points);
+  const latest = context.current;
+  const previous = context.previous;
   if (!latest || !previous) return [];
 
-  const change = pctChange(latest.value, previous.value);
+  const change = context.weekChange;
   const verb = attendanceTrendVerb(change);
   const trendSeverity = gradeAttendanceTrend(change);
   const movementRows = campusMovementRows();
@@ -1714,11 +1988,12 @@ function allCampusAttendanceTrendInsights() {
 
 function selectedCampusInsights() {
   const points = getMetricPoints("attendance", state.campus);
-  const latest = points.at(-1);
-  const previous = points.at(-2);
+  const context = selectedPointContext(points);
+  const latest = context.current;
+  const previous = context.previous;
   const stat = statForCampus(state.campus);
   if (!stat || !latest) return [];
-  const weekChange = latest && previous ? pctChange(latest.value, previous.value) : stat.weekChangePct;
+  const weekChange = context.weekChange ?? stat.weekChangePct;
   const weekTone = gradeAttendanceTrend(weekChange);
   const baselineTone =
     (stat.vsPrevious4Pct || 0) <= -10 ? "critical" : (stat.vsPrevious4Pct || 0) < 0 ? "warning" : "info";
@@ -1833,14 +2108,16 @@ function renderInsights() {
     state.metric !== "attendance"
       ? []
       : state.campus === "All Campuses"
-      ? data.insights
-          .filter((insight) => !["trend", "volatility", "event"].includes(insight.type))
-          .map((insight) => ({
-            title: insight.title,
-            body: insight.body,
-            severity: insight.severity,
-          }))
-      : selectedCampusInsights();
+        ? state.selectedDate
+          ? []
+          : data.insights
+              .filter((insight) => !["trend", "volatility", "event"].includes(insight.type))
+              .map((insight) => ({
+                title: insight.title,
+                body: insight.body,
+                severity: insight.severity,
+              }))
+        : selectedCampusInsights();
   const insights = [
     ...(state.metric === "attendance" && state.campus === "All Campuses" ? allCampusAttendanceTrendInsights() : []),
     ...baseInsights,
@@ -1871,7 +2148,7 @@ function renderInsights() {
 }
 
 function renderTable() {
-  els.campusTable.innerHTML = data.campusStats
+  els.campusTable.innerHTML = attendanceCampusRowsForContext()
     .map(
       (row) => `
         <tr data-campus="${row.campus}" class="${row.campus === state.campus ? "active" : ""}">
@@ -3408,8 +3685,8 @@ function renderBigFiveInsights(records) {
     });
 
     insights.push({
-      title: "Growth plan lens",
-      body: "Tie the goal to the 5 keys and campus emphasis areas: excellent Sundays, fully staffed leaders and Dream Team, compelling communication, Maximizing Big 5 Sundays, and clear next steps after the event.",
+      title: "Event readiness focus",
+      body: "Use the goal to check Sunday quality, staffing, communication, and next-step follow-up before the event.",
       severity: "info",
     });
   }
@@ -3543,9 +3820,48 @@ function renderMetricPanels() {
   for (const panel of els.attendanceOnlyPanels) {
     panel.classList.toggle("is-hidden", state.metric !== "attendance");
   }
+  els.dreamTeamCampusPanel?.classList.add("is-hidden");
   els.trendInsightLayout?.classList.toggle("attendance-stack", state.metric === "attendance");
   els.comparisonGrid?.classList.toggle("single-panel", state.metric !== "attendance");
   els.eventToggleWrapper?.classList.toggle("is-hidden", !showStandard);
+}
+
+function syncTakeawayLayout() {
+  if (!els.trendInsightLayout || !els.chartPanel || !els.insightsPanel) return;
+  els.trendInsightLayout.classList.remove("takeaways-below");
+  if (!isStandardMetricSelected() || state.metric === "attendance") return;
+
+  const figcaption = els.chartPanel.querySelector("figcaption");
+  const naturalChartHeight =
+    (figcaption?.scrollHeight || 0) + (els.lineChart?.scrollHeight || 0) + 28;
+  const takeawayHeight = els.insightsPanel.scrollHeight;
+  els.trendInsightLayout.classList.toggle("takeaways-below", takeawayHeight > naturalChartHeight + 24);
+}
+
+function renderTrendMeta(context) {
+  const current = context.current;
+  if (!current) {
+    els.trendMeta.textContent = "";
+    return;
+  }
+
+  if (context.isArchive) {
+    els.trendMeta.innerHTML = `
+      <span class="archive-meta">
+        <span>Sunday Archive: ${formatDate(current.date)}</span>
+        <button class="archive-reset" type="button">Back to latest</button>
+      </span>
+    `;
+    els.trendMeta.querySelector(".archive-reset")?.addEventListener("click", () => {
+      state.selectedDate = null;
+      updateDashboard();
+    });
+    return;
+  }
+
+  els.trendMeta.textContent = `${formatNumber(current.value)} most recent, ${formatPct(
+    context.weekChange,
+  )} since last Sunday`;
 }
 
 function updateDashboard() {
@@ -3570,23 +3886,20 @@ function updateDashboard() {
   }
 
   const points = getMetricPoints(state.metric, state.campus);
-  const latest = points.at(-1);
-  const previous = points.at(-2);
-  const weekChange = latest && previous ? pctChange(latest.value, previous.value) : null;
+  const context = selectedPointContext(points);
 
   els.trendTitle.textContent =
     state.campus === "All Campuses"
       ? `${metricLabels[state.metric]} Over Time`
       : `${state.campus} ${metricLabels[state.metric]}`;
-  els.trendMeta.textContent = latest
-    ? `${formatNumber(latest.value)} most recent, ${formatPct(weekChange)} since last Sunday`
-    : "";
+  renderTrendMeta(context);
 
   renderKpis(points);
   renderLineChart(points);
   renderBars();
   if (state.metric === "attendance") renderVolatility();
   renderInsights();
+  syncTakeawayLayout();
   renderHealth();
   if (state.metric === "attendance") renderTable();
 }
