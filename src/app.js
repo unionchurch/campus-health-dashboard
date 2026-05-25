@@ -1,5 +1,5 @@
-import dashboardData from "./dashboard-data.js?v=20260524-dt-serving-targets";
-import { setupLiveExcel } from "./live-excel.js?v=20260524-dt-serving-targets";
+import dashboardData from "./dashboard-data.js?v=20260525-vacancy-role-order";
+import { setupLiveExcel } from "./live-excel.js?v=20260525-vacancy-role-order";
 
 let data = dashboardData;
 
@@ -261,6 +261,9 @@ const els = {
   healthTableBody: document.querySelector("#healthTableBody"),
   leadershipVacancyChart: document.querySelector("#leadershipVacancyChart"),
   leadershipVacancyMeta: document.querySelector("#leadershipVacancyMeta"),
+  leadershipCampusSnapshotWrap: document.querySelector("#leadershipCampusSnapshotWrap"),
+  leadershipCampusMeta: document.querySelector("#leadershipCampusMeta"),
+  leadershipCampusSnapshot: document.querySelector("#leadershipCampusSnapshot"),
   growthHistoryMeta: document.querySelector("#growthHistoryMeta"),
   growthHistoryKpis: document.querySelector("#growthHistoryKpis"),
   growthHistoryTrendTitle: document.querySelector("#growthHistoryTrendTitle"),
@@ -561,16 +564,22 @@ function syncBigFiveYearOptions(records) {
 
 function syncHealthMonthOptions() {
   const months = healthArchiveMonths();
-  const latest = latestCompletedHealthMonth();
-  const current = state.healthMonth;
+  const defaultMonth = defaultHealthMonth();
+  const currentMonth = currentMonthKey();
+  const currentSelection = state.healthMonth;
   els.healthMonthSelect.innerHTML = "";
   for (const month of months.slice().reverse()) {
     const option = document.createElement("option");
     option.value = month;
-    option.textContent = month === latest ? `${formatMonth(month)} (Latest)` : formatMonth(month);
+    option.textContent =
+      month === currentMonth
+        ? `${formatMonth(month)} (Current)`
+        : month === defaultMonth
+          ? `${formatMonth(month)} (Latest)`
+          : formatMonth(month);
     els.healthMonthSelect.append(option);
   }
-  state.healthMonth = months.includes(current) ? current : latest;
+  state.healthMonth = months.includes(currentSelection) ? currentSelection : defaultMonth;
   if (state.healthMonth) els.healthMonthSelect.value = state.healthMonth;
   els.healthMonthSelect.disabled = months.length === 0;
 }
@@ -2194,9 +2203,11 @@ function currentMonthKey() {
   return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function latestCompletedHealthMonth() {
+function defaultHealthMonth() {
   const months = healthArchiveMonths();
   if (!months.length) return null;
+  const current = currentMonthKey();
+  if (months.includes(current)) return current;
   return months.at(-1);
 }
 
@@ -2204,7 +2215,7 @@ function selectedHealthMonth() {
   const months = healthArchiveMonths();
   if (!months.length) return null;
   if (!months.includes(state.healthMonth)) {
-    state.healthMonth = latestCompletedHealthMonth();
+    state.healthMonth = defaultHealthMonth();
   }
   return state.healthMonth;
 }
@@ -2216,8 +2227,17 @@ function previousHealthMonth(month) {
 
 function healthArchiveMonths() {
   const months = healthMonths();
-  const completed = months.filter((month) => month < currentMonthKey());
-  return completed.length ? completed : months;
+  const current = currentMonthKey();
+  const available = months.filter((month) => month <= current);
+  return available.length ? available : months;
+}
+
+function isCurrentHealthMonth(month) {
+  return Boolean(month && month === currentMonthKey());
+}
+
+function healthMonthDisplay(month) {
+  return isCurrentHealthMonth(month) ? `${formatMonth(month)} month-to-date` : formatMonth(month);
 }
 
 function sameMonth(iso, month) {
@@ -2503,6 +2523,57 @@ function leadershipSummary(campuses, month) {
   };
 }
 
+const leadershipRoleOrder = ["Director", "Coordinator", "Team Lead"];
+
+function leadershipRoleRank(role) {
+  const rank = leadershipRoleOrder.findIndex((item) => item.toLowerCase() === String(role || "").toLowerCase());
+  return rank === -1 ? leadershipRoleOrder.length : rank;
+}
+
+function leadershipRoleLabel(role) {
+  if (String(role).toLowerCase() === "team lead") return "Team Leads";
+  return `${role}s`;
+}
+
+function campusLeadershipVacancyRows(month) {
+  if (!month) return [];
+  return data.campuses
+    .map((campus) => {
+      const leadership = leadershipSummary([campus], month);
+      const roleVacancies = leadership.roles
+        .filter((role) => isFiniteNumber(role.vacancies) && role.vacancies > 0)
+        .sort((a, b) => leadershipRoleRank(a.role) - leadershipRoleRank(b.role));
+      const roleSummary = roleVacancies.length
+        ? roleVacancies
+            .map((role) => `${formatNumber(role.vacancies)} ${leadershipRoleLabel(role.role)}`)
+            .join(", ")
+        : isFiniteNumber(leadership.vacancies)
+          ? "No vacancies reported"
+          : "Needs leadership data";
+      return {
+        campus,
+        vacancies: leadership.vacancies,
+        filled: leadership.filled,
+        target: leadership.target,
+        fillPct: leadership.fillPct,
+        priorityRank: roleVacancies[0] ? leadershipRoleRank(roleVacancies[0].role) : leadershipRoleOrder.length,
+        roleDetails: roleVacancies.map((role) => ({
+          role: role.role,
+          label: leadershipRoleLabel(role.role),
+          vacancies: role.vacancies,
+        })),
+        roleSummary,
+      };
+    })
+    .filter(
+      (row) => isFiniteNumber(row.vacancies) || isFiniteNumber(row.filled) || isFiniteNumber(row.target),
+    )
+    .sort(
+      (a, b) =>
+        a.priorityRank - b.priorityRank || (b.vacancies || 0) - (a.vacancies || 0) || a.campus.localeCompare(b.campus),
+    );
+}
+
 function buildHealthReport(selectedMonth = selectedHealthMonth()) {
   const campuses = selectedHealthCampuses();
   const month = selectedMonth;
@@ -2716,6 +2787,7 @@ function statusChangeInsights(report, previousReport) {
 
 function healthTakeaways(report) {
   if (!report.month) return [];
+  const reportMonthLabel = healthMonthDisplay(report.month);
   const previousMonth = previousHealthMonth(report.month);
   const previousReport = previousMonth ? buildHealthReport(previousMonth) : null;
   const counts = healthStatusCounts(report);
@@ -2736,7 +2808,7 @@ function healthTakeaways(report) {
     vacancyValue !== null && previousVacancyValue !== null ? vacancyValue - previousVacancyValue : null;
   const takeaways = [
     {
-      title: `${formatMonth(report.month)} health snapshot`,
+      title: `${reportMonthLabel} health snapshot`,
       body: counts.total
         ? `${counts.onTrack} on track, ${counts.watch} watch, ${counts.urgent} urgent, and ${counts.critical} critical across ${counts.total} graded health metrics.`
         : "Connect the health input sheets to grade this month.",
@@ -2755,7 +2827,7 @@ function healthTakeaways(report) {
       body:
         attendanceChange === null
           ? `No clean ${formatMonth(previousReport.month)} attendance average was available for comparison.`
-          : `${formatMonth(report.month)} averaged ${formatNumber(healthNumericValue(attendance))}, compared with ${formatNumber(
+          : `${reportMonthLabel} averaged ${formatNumber(healthNumericValue(attendance))}, compared with ${formatNumber(
               healthNumericValue(previousAttendance),
             )} in ${formatMonth(previousReport.month)}.`,
       severity: attendanceChange !== null && attendanceChange < 0 ? "warning" : "info",
@@ -2810,7 +2882,7 @@ function renderHealthInsights(report) {
     els.healthInsights.innerHTML = `
       <article class="insight">
         <h3 class="insight-title">Connect Excel to load health takeaways</h3>
-        <p class="insight-body">The latest completed month, month archive, and month-to-month comparison will appear here once live workbook data is loaded.</p>
+        <p class="insight-body">The current month, month archive, and month-to-month comparison will appear here once live workbook data is loaded.</p>
       </article>
     `;
     return;
@@ -2842,12 +2914,13 @@ function renderHealthTable(report) {
     <th>${label}</th>
   `;
   const weekHeaders = report.dates.map((date) => headerCell(shortDate(date))).join("");
+  const monthSummaryLabel = isCurrentHealthMonth(report.month) ? "Month to Date" : "Month";
   els.healthTableHead.innerHTML = `
     <tr>
       ${headerCell("Metric")}
       ${headerCell("Optimal")}
       ${weekHeaders}
-      ${headerCell("Month")}
+      ${headerCell(monthSummaryLabel)}
       ${headerCell("Grade")}
       ${headerCell("Status")}
     </tr>
@@ -2920,18 +2993,79 @@ function renderLeadershipVacancyChart(report) {
     .join("");
 }
 
+function renderCampusVacancySnapshot(report) {
+  if (!els.leadershipCampusSnapshotWrap || !els.leadershipCampusSnapshot) return;
+  const showSnapshot = state.campus === "All Campuses";
+  els.leadershipCampusSnapshotWrap.classList.toggle("is-hidden", !showSnapshot);
+  if (!showSnapshot) return;
+
+  const rows = campusLeadershipVacancyRows(report.month);
+  const totalVacancies = sumNumbers(rows.map((row) => row.vacancies));
+  const campusesWithVacancies = rows.filter((row) => (row.vacancies || 0) > 0).length;
+  els.leadershipCampusMeta.textContent =
+    totalVacancies !== null
+      ? `${formatNumber(totalVacancies)} total · ${formatNumber(campusesWithVacancies)} campuses`
+      : "Needs data";
+
+  if (!rows.length) {
+    els.leadershipCampusSnapshot.innerHTML = `
+      <div class="empty">Campus vacancy totals will appear here once leadership data is available.</div>
+    `;
+    return;
+  }
+
+  const maxVacancies = Math.max(...rows.map((row) => row.vacancies || 0), 1);
+  els.leadershipCampusSnapshot.innerHTML = rows
+    .map((row) => {
+      const vacancies = isFiniteNumber(row.vacancies) ? row.vacancies : null;
+      const width = vacancies ? Math.max(8, (vacancies / maxVacancies) * 100) : 0;
+      const statusClass =
+        vacancies === null ? "needs-data" : vacancies === 0 ? "clear" : vacancies >= 5 ? "critical" : "watch";
+      const roleDetails = row.roleDetails?.length
+        ? `
+          <div class="campus-vacancy-roles">
+            ${row.roleDetails
+              .map(
+                (role) => `
+                  <span>
+                    <strong>${formatNumber(role.vacancies)}</strong>
+                    ${escapeHtml(role.label)}
+                  </span>
+                `,
+              )
+              .join("")}
+          </div>
+        `
+        : `<div class="campus-vacancy-detail">${escapeHtml(row.roleSummary)}</div>`;
+      return `
+        <article class="campus-vacancy-card ${statusClass}">
+          <div>
+            <div class="campus-vacancy-name">${escapeHtml(row.campus)}</div>
+            ${roleDetails}
+          </div>
+          <div class="campus-vacancy-number">${formatNumber(vacancies)}</div>
+          <div class="campus-vacancy-track" aria-hidden="true">
+            <span style="width:${width}%"></span>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
 function renderHealth() {
   syncHealthMonthOptions();
   const report = buildHealthReport();
   els.healthMonthMeta.textContent = report.month
     ? `${state.campus}`
-    : "Latest completed month";
+    : "Current month";
   els.healthReportMeta.textContent = report.month
-    ? `${formatMonth(report.month)} · ${state.campus}`
-    : "Latest completed month";
+    ? `${healthMonthDisplay(report.month)} · ${state.campus}`
+    : "Current month";
   renderHealthInsights(report);
   renderHealthTable(report);
   renderLeadershipVacancyChart(report);
+  renderCampusVacancySnapshot(report);
 }
 
 function growthHistoryRows() {
