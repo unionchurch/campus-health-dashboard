@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Campus Health Dashboard</title>
-    <link rel="stylesheet" href="./styles.css?v=20260520-sunday-archive" />
+    <link rel="stylesheet" href="./styles.css?v=20260525-vacancy-role-order" />
   </head>
   <body>
     <main class="shell">
@@ -110,7 +110,7 @@
             </div>
             <div class="health-header-actions">
               <label class="field compact-field health-month-field">
-                <span>Month Archive</span>
+                <span>Month</span>
                 <select id="healthMonthSelect"></select>
               </label>
               <span id="healthMonthMeta" class="panel-meta"></span>
@@ -139,7 +139,7 @@
           <div class="panel-heading health-heading">
             <div>
               <span class="panel-kicker">Leadership Detail</span>
-              <h2>Vacancies by Role</h2>
+              <h2>Leadership Vacancies</h2>
             </div>
             <span id="leadershipVacancyMeta" class="panel-meta"></span>
           </div>
@@ -148,6 +148,17 @@
             class="chart chart-bars leadership-vacancy-chart"
             aria-label="Leadership vacancies by role chart"
           ></div>
+          <div id="leadershipCampusSnapshotWrap" class="leadership-campus-wrap is-hidden">
+            <div class="leadership-campus-heading">
+              <span>Campus vacancy snapshot</span>
+              <span id="leadershipCampusMeta"></span>
+            </div>
+            <div
+              id="leadershipCampusSnapshot"
+              class="leadership-campus-snapshot"
+              aria-label="Leadership vacancies by campus"
+            ></div>
+          </div>
         </section>
       </section>
 
@@ -268,6 +279,6 @@
       </section>
     </main>
     <script src="https://alcdn.msauth.net/browser/2.38.2/js/msal-browser.min.js"></script>
-    <script type="module" src="./src/app.js?v=20260524-dt-serving-targets"></script>
+    <script type="module" src="./src/app.js?v=20260525-vacancy-role-order"></script>
   </body>
 </html>

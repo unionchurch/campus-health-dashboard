@@ -901,7 +901,7 @@ figcaption,
 }
 
 .leadership-vacancy-chart {
-  min-height: 230px;
+  min-height: 180px;
   padding: 4px 18px 18px;
 }
 
@@ -936,6 +936,134 @@ figcaption,
 
 .vacancy-fill {
   background: linear-gradient(90deg, var(--amber), var(--red));
+}
+
+.leadership-campus-wrap {
+  padding: 0 18px 18px;
+}
+
+.leadership-campus-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 0 8px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 780;
+  text-transform: uppercase;
+}
+
+.leadership-campus-snapshot {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 8px;
+}
+
+.campus-vacancy-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px 10px;
+  align-items: center;
+  min-height: 86px;
+  padding: 10px;
+  background: #ffffff;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+}
+
+.campus-vacancy-card.watch {
+  border-color: var(--green);
+  background: #fbffe2;
+}
+
+.campus-vacancy-card.critical {
+  border-color: var(--red);
+  background: #fff0f2;
+}
+
+.campus-vacancy-card.clear {
+  background: #f7faf4;
+}
+
+.campus-vacancy-name {
+  overflow: hidden;
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  font-weight: 860;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.campus-vacancy-detail {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.campus-vacancy-roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 7px;
+}
+
+.campus-vacancy-roles span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  min-height: 22px;
+  padding: 3px 7px;
+  background: rgba(255, 255, 241, 0.8);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 760;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.campus-vacancy-roles strong {
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.campus-vacancy-number {
+  color: var(--ink-soft);
+  font-family: var(--display-font);
+  font-size: 1.35rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.campus-vacancy-track {
+  grid-column: 1 / -1;
+  height: 6px;
+  overflow: hidden;
+  background: var(--surface-2);
+  border-radius: 999px;
+}
+
+.campus-vacancy-track span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--green), var(--red));
+  border-radius: inherit;
+}
+
+.campus-vacancy-card.clear .campus-vacancy-number,
+.campus-vacancy-card.clear .campus-vacancy-track span {
+  color: var(--green);
+}
+
+.campus-vacancy-card.clear .campus-vacancy-track span {
+  background: var(--green);
 }
 
 .status-pill {
