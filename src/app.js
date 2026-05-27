@@ -1,5 +1,5 @@
-import dashboardData from "./dashboard-data.js?v=20260525-vacancy-role-order";
-import { setupLiveExcel } from "./live-excel.js?v=20260525-vacancy-role-order";
+import dashboardData from "./dashboard-data.js?v=20260526-health-target-single-grade";
+import { setupLiveExcel } from "./live-excel.js?v=20260526-health-target-single-grade";
 
 let data = dashboardData;
 
@@ -44,8 +44,8 @@ const healthTargetDefaults = {
     optimalMax: 4,
     direction: "range",
   },
-  baptismPct: { label: "Baptisms %", unit: "%", optimalMin: 0.25, direction: "higher" },
-  salvationsPct: { label: "Salvations %", unit: "%", optimalMin: 0.75, direction: "higher" },
+  baptismPct: { label: "Baptisms %", unit: "%", optimalMin: 15, direction: "higher" },
+  salvationsPct: { label: "Salvations %", unit: "%", optimalMin: 10, direction: "higher" },
   firstTimersPct: {
     label: "First Time Guests %",
     unit: "%",
@@ -87,6 +87,29 @@ const healthOptimalLabels = {
   groupAttendancePct: "Higher",
   heartSoulTeamLeadPct: "If included",
   leadershipVacancies: "0",
+};
+
+const healthTargetAliases = {
+  baptismPct: [
+    "Baptism",
+    "Baptisms",
+    "Baptism %",
+    "Baptisms %",
+    "Baptism Percent",
+    "Baptisms Percent",
+    "Baptisms as Percent of Weekend Attendance",
+    "Baptisms as % of Weekend Attendance",
+  ],
+  salvationsPct: [
+    "Salvation",
+    "Salvations",
+    "Salvation %",
+    "Salvations %",
+    "Salvation Percent",
+    "Salvations Percent",
+    "Salvations as Percent of Weekend Attendance",
+    "Salvations as % of Weekend Attendance",
+  ],
 };
 
 const metricRateTargets = {
@@ -257,6 +280,8 @@ const els = {
   healthMonthMeta: document.querySelector("#healthMonthMeta"),
   healthReportMeta: document.querySelector("#healthReportMeta"),
   healthInsights: document.querySelector("#healthInsights"),
+  healthOverallMeta: document.querySelector("#healthOverallMeta"),
+  healthOverallGrid: document.querySelector("#healthOverallGrid"),
   healthTableHead: document.querySelector("#healthTableHead"),
   healthTableBody: document.querySelector("#healthTableBody"),
   leadershipVacancyChart: document.querySelector("#leadershipVacancyChart"),
@@ -2327,12 +2352,12 @@ function monthlyPercentOfAttendance(metricKey, dates, campuses) {
   return averageNumbers(dates.map((date) => weeklyPercentOfAttendance(metricKey, date, campuses)));
 }
 
-function normalizeHealthTarget(target) {
+function normalizeHealthTarget(target, conversionSource = target, targetKey = null) {
   const output = { ...target };
   const unitText = String(output.unit || "").toLowerCase();
   const isPercentTarget = output.unit === "%" || unitText.includes("percent");
   for (const key of ["optimalMin", "optimalMax"]) {
-    if (isPercentTarget && output[key] > 0 && output[key] <= 1) {
+    if (isPercentTarget && key in conversionSource && output[key] > 0 && output[key] <= 1) {
       output[key] *= 100;
     }
   }
@@ -2341,15 +2366,33 @@ function normalizeHealthTarget(target) {
   return output;
 }
 
-function healthTarget(key) {
-  const normalized = key.toLowerCase().replace(/[^a-z0-9]/g, "");
-  const workbookTarget = (data.health?.targets || []).find(
-    (target) => String(target.key || "").toLowerCase().replace(/[^a-z0-9]/g, "") === normalized,
+function healthTargetMatchKeys(key) {
+  return new Set(
+    [
+      key,
+      healthTargetDefaults[key]?.label,
+      ...(healthTargetAliases[key] || []),
+    ]
+      .map(normalizeText)
+      .filter(Boolean),
   );
+}
+
+function healthTargetMatches(target, key) {
+  const candidates = [target.key, target.label].map(normalizeText).filter(Boolean);
+  const matchKeys = healthTargetMatchKeys(key);
+  if (candidates.some((candidate) => matchKeys.has(candidate))) return true;
+
+  const aliases = (healthTargetAliases[key] || []).map(normalizeText).filter(Boolean);
+  return candidates.some((candidate) => aliases.some((alias) => candidate.includes(alias) || alias.includes(candidate)));
+}
+
+function healthTarget(key) {
+  const workbookTarget = (data.health?.targets || []).find((target) => healthTargetMatches(target, key));
   const override = Object.fromEntries(
     Object.entries(workbookTarget || {}).filter(([, value]) => value !== null && value !== undefined && value !== ""),
   );
-  return normalizeHealthTarget({ ...(healthTargetDefaults[key] || {}), ...override });
+  return normalizeHealthTarget({ ...(healthTargetDefaults[key] || {}), ...override }, override, key);
 }
 
 function targetLabel(key) {
@@ -2361,11 +2404,14 @@ function targetLabel(key) {
   if (target.direction === "lower") {
     return target.unit === "%" ? `<= ${formatTargetPct(target.optimalMax)}` : `<= ${formatNumber(target.optimalMax)}`;
   }
-  if (hasMin && hasMax) {
-    return `${formatTargetPct(target.optimalMin)}-${formatTargetPct(target.optimalMax)}`;
+  const formatTargetValue = (value) => (target.unit === "%" ? formatTargetPct(value) : formatNumber(value));
+  if (hasMin && hasMax && Number(target.optimalMin) === Number(target.optimalMax)) {
+    return formatTargetValue(target.optimalMin);
   }
-  if (target.unit === "%") return `${formatTargetPct(target.optimalMin)}`;
-  return `${formatNumber(target.optimalMin)}+`;
+  if (hasMin && hasMax) {
+    return `${formatTargetValue(target.optimalMin)}-${formatTargetValue(target.optimalMax)}`;
+  }
+  return `${formatTargetValue(target.optimalMin)}+`;
 }
 
 function severityFromGrade(grade) {
@@ -2416,6 +2462,11 @@ function healthStatus(key, value) {
   }
   if (target.direction === "lower") {
     const grade = gradeForLowerTarget(value, target.optimalMax);
+    return { ...severityFromGrade(grade), grade };
+  }
+  if (hasMin && hasMax && Number(target.optimalMin) === Number(target.optimalMax)) {
+    if (value >= target.optimalMin) return { label: "On Track", tone: "positive", grade: 1 };
+    const grade = gradeFromDeficit((target.optimalMin - value) / target.optimalMin);
     return { ...severityFromGrade(grade), grade };
   }
   if (hasMin && value < target.optimalMin) {
@@ -2574,8 +2625,8 @@ function campusLeadershipVacancyRows(month) {
     );
 }
 
-function buildHealthReport(selectedMonth = selectedHealthMonth()) {
-  const campuses = selectedHealthCampuses();
+function buildHealthReport(selectedMonth = selectedHealthMonth(), campusesOverride = selectedHealthCampuses()) {
+  const campuses = campusesOverride;
   const month = selectedMonth;
   const dates = month ? attendanceDatesForMonth(campuses, month) : [];
   const attendanceValues = dates.map((date) => metricValueOnDate("attendance", campuses, date));
@@ -2705,6 +2756,54 @@ function healthNumericValue(row) {
   return typeof row.monthValue === "number" && Number.isFinite(row.monthValue) ? row.monthValue : null;
 }
 
+function formatOverallGrade(value) {
+  if (!isFiniteNumber(value)) return "--";
+  return Number(value).toFixed(1).replace(/\.0$/, "");
+}
+
+function overallHealthGrade(report) {
+  const gradedRows = (report?.rows || []).filter((row) => isFiniteNumber(row.status.grade));
+  const grade = averageNumbers(gradedRows.map((row) => row.status.grade));
+  const rounded = grade === null ? null : Number(grade.toFixed(1));
+  const status = rounded === null ? { label: "Needs Data", tone: "neutral" } : severityFromGrade(rounded);
+  const focusRows = gradedRows
+    .filter((row) => isFiniteNumber(row.status.grade) && row.status.grade > 1)
+    .sort((a, b) => b.status.grade - a.status.grade)
+    .slice(0, 2);
+  return {
+    grade: rounded,
+    label: status.label,
+    tone: status.tone,
+    count: gradedRows.length,
+    focusRows,
+  };
+}
+
+function overallGradeDetail(grade) {
+  if (!grade.count) return "Needs graded health data";
+  if (!grade.focusRows.length) return `${grade.count} graded metrics · no major gaps`;
+  return `Top focus: ${grade.focusRows.map((row) => row.label).join(", ")}`;
+}
+
+function campusOverallGradeRows(month) {
+  if (!month) return [];
+  return data.campuses
+    .map((campus) => {
+      const report = buildHealthReport(month, [campus]);
+      return {
+        campus,
+        grade: overallHealthGrade(report),
+      };
+    })
+    .filter((row) => row.grade.count > 0)
+    .sort(
+      (a, b) =>
+        (b.grade.grade ?? -1) - (a.grade.grade ?? -1) ||
+        a.grade.tone.localeCompare(b.grade.tone) ||
+        a.campus.localeCompare(b.campus),
+    );
+}
+
 function healthInsightSeverity(tone) {
   if (tone === "critical" || tone === "urgent") return "critical";
   if (tone === "watch" || tone === "negative") return "warning";
@@ -2791,6 +2890,7 @@ function healthTakeaways(report) {
   const previousMonth = previousHealthMonth(report.month);
   const previousReport = previousMonth ? buildHealthReport(previousMonth) : null;
   const counts = healthStatusCounts(report);
+  const overallGrade = overallHealthGrade(report);
   const rowMap = healthRowMap(report);
   const previousRows = healthRowMap(previousReport);
   const attendance = rowMap.get("attendance");
@@ -2810,7 +2910,7 @@ function healthTakeaways(report) {
     {
       title: `${reportMonthLabel} health snapshot`,
       body: counts.total
-        ? `${counts.onTrack} on track, ${counts.watch} watch, ${counts.urgent} urgent, and ${counts.critical} critical across ${counts.total} graded health metrics.`
+        ? `${counts.onTrack} on track, ${counts.watch} watch, ${counts.urgent} urgent, and ${counts.critical} critical across ${counts.total} graded health metrics. Overall grade: ${formatOverallGrade(overallGrade.grade)}.`
         : "Connect the health input sheets to grade this month.",
       severity: counts.critical || counts.urgent ? "critical" : counts.watch ? "warning" : "info",
     },
@@ -2897,6 +2997,55 @@ function renderHealthInsights(report) {
       `,
     )
     .join("");
+}
+
+function renderOverallGradeCard(campus, grade, options = {}) {
+  const detail = overallGradeDetail(grade);
+  return `
+    <article class="overall-grade-card ${grade.tone || "neutral"} ${options.featured ? "featured" : ""}">
+      <div class="overall-grade-copy">
+        <div class="overall-grade-campus">${escapeHtml(campus)}</div>
+        <div class="overall-grade-detail">${escapeHtml(detail)}</div>
+      </div>
+      <div class="overall-grade-score-block">
+        <div class="overall-grade-score">${formatOverallGrade(grade.grade)}</div>
+      </div>
+      <div class="overall-grade-status">${escapeHtml(grade.label || "Needs Data")}</div>
+    </article>
+  `;
+}
+
+function renderHealthOverallGrades(report) {
+  if (!els.healthOverallGrid || !els.healthOverallMeta) return;
+  if (!report.month) {
+    els.healthOverallMeta.textContent = "Needs data";
+    els.healthOverallGrid.innerHTML = `
+      <div class="empty">Overall campus grades will appear once health data is available.</div>
+    `;
+    return;
+  }
+
+  const overall = overallHealthGrade(report);
+  const overallLabel = formatOverallGrade(overall.grade);
+  els.healthOverallMeta.textContent =
+    overall.grade === null
+      ? "Needs data"
+      : `${state.campus === "All Campuses" ? "All Campuses" : state.campus}: ${overallLabel} · 1 = no attention needed, 10 = critical attention`;
+
+  if (state.campus === "All Campuses") {
+    const rows = campusOverallGradeRows(report.month);
+    els.healthOverallGrid.classList.add("multi-campus");
+    els.healthOverallGrid.innerHTML = rows.length
+      ? [
+          renderOverallGradeCard("All Campuses", overall),
+          ...rows.map((row) => renderOverallGradeCard(row.campus, row.grade)),
+        ].join("")
+      : `<div class="empty">Campus grades will appear once each campus has graded health data.</div>`;
+    return;
+  }
+
+  els.healthOverallGrid.classList.remove("multi-campus");
+  els.healthOverallGrid.innerHTML = renderOverallGradeCard(state.campus, overall, { featured: true });
 }
 
 function formatHealthCell(format, value) {
@@ -3063,6 +3212,7 @@ function renderHealth() {
     ? `${healthMonthDisplay(report.month)} · ${state.campus}`
     : "Current month";
   renderHealthInsights(report);
+  renderHealthOverallGrades(report);
   renderHealthTable(report);
   renderLeadershipVacancyChart(report);
   renderCampusVacancySnapshot(report);

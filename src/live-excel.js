@@ -1306,18 +1306,56 @@ function extractCampusGrowthHistory(range) {
   };
 }
 
+function targetNumbersFromText(value) {
+  const text = cleanText(value);
+  if (!text) return { min: null, max: null };
+  const isPercent = /%|percent/i.test(text);
+  const numbers = Array.from(text.matchAll(/(?:\d+\.?\d*|\.\d+)/g)).map((match) => {
+    const number = Number(match[0]);
+    return isPercent ? number / 100 : number;
+  });
+  return {
+    min: Number.isFinite(numbers[0]) ? numbers[0] : null,
+    max: Number.isFinite(numbers[1]) ? numbers[1] : null,
+  };
+}
+
+function targetUnitFromText(value) {
+  const text = cleanText(value)?.toLowerCase();
+  if (!text) return null;
+  if (text.includes("%") || text.includes("percent")) return "%";
+  return null;
+}
+
 function extractHealthTargets(range) {
-  return tableRows(range, ["metric_key", "metric_label"])
-    .map((row) => ({
-      key: rowText(row, ["metric_key", "key"]),
-      label: rowText(row, ["metric_label", "label", "metric"]),
-      targetType: rowText(row, ["target_type", "type"]),
-      optimalMin: rowNumber(row, ["optimal_min", "min"]),
-      optimalMax: rowNumber(row, ["optimal_max", "max"]),
-      unit: rowText(row, ["unit", "format"]),
-      direction: rowText(row, ["direction"]),
-      notes: rowText(row, ["notes"]),
-    }))
+  const rows = tableRows(range, ["metric_key", "metric_label"]);
+  const targetRows = rows.length ? rows : tableRows(range);
+  return targetRows
+    .map((row) => {
+      const metricText = rowText(row, ["metric_label", "label", "metric", "metric_name", "health_metric", "measure"]);
+      const targetText = rowText(row, [
+        "optimal",
+        "optimal_target",
+        "target",
+        "target_value",
+        "health_target",
+        "goal",
+        "range",
+      ]);
+      const parsedTarget = targetNumbersFromText(targetText);
+      return {
+        key: rowText(row, ["metric_key", "key", "target_key", "metric_id"]) || metricText,
+        label: metricText,
+        targetType: rowText(row, ["target_type", "type"]),
+        optimalMin:
+          rowNumber(row, ["optimal_min", "min", "minimum", "target_min", "low", "low_target"]) ?? parsedTarget.min,
+        optimalMax:
+          rowNumber(row, ["optimal_max", "max", "maximum", "target_max", "high", "high_target"]) ?? parsedTarget.max,
+        unit: rowText(row, ["unit", "format"]) || targetUnitFromText(targetText),
+        direction: rowText(row, ["direction"]),
+        notes: rowText(row, ["notes"]),
+      };
+    })
     .filter((row) => row.key || row.label);
 }
 

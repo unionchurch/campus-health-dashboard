@@ -704,6 +704,7 @@ figcaption,
 }
 
 .health-panel,
+.health-overall-panel,
 .health-leadership-panel {
   margin-bottom: 0;
 }
@@ -900,6 +901,110 @@ figcaption,
   background: #edf3ef !important;
 }
 
+.health-overall-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  padding: 0 18px 18px;
+}
+
+.health-overall-grid.multi-campus {
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+
+.overall-grade-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 12px;
+  align-items: center;
+  min-height: 92px;
+  padding: 12px;
+  background: #ffffff;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+}
+
+.overall-grade-card.featured {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  min-height: 104px;
+}
+
+.overall-grade-card.positive {
+  border-color: var(--green);
+  background: #f7faf4;
+}
+
+.overall-grade-card.watch {
+  border-color: var(--green);
+  background: #fbffe2;
+}
+
+.overall-grade-card.urgent {
+  border-color: #d7802b;
+  background: #fff7ea;
+}
+
+.overall-grade-card.critical {
+  border-color: var(--red);
+  background: #fff0f2;
+}
+
+.overall-grade-campus {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  font-weight: 860;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+.overall-grade-detail {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 680;
+  line-height: 1.3;
+}
+
+.overall-grade-score-block {
+  min-width: 86px;
+  text-align: right;
+}
+
+.overall-grade-score {
+  color: var(--ink-soft);
+  font-family: var(--display-font);
+  font-size: 2rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  line-height: 0.95;
+}
+
+.overall-grade-scale {
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 780;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+.overall-grade-status {
+  grid-column: 1 / -1;
+  justify-self: start;
+  min-height: 24px;
+  padding: 4px 8px;
+  color: var(--ink-soft);
+  background: rgba(255, 255, 241, 0.85);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 820;
+  text-transform: uppercase;
+}
+
+.overall-grade-card.featured .overall-grade-status {
+  grid-column: auto;
+}
+
 .leadership-vacancy-chart {
   min-height: 180px;
   padding: 4px 18px 18px;
@@ -956,7 +1061,7 @@ figcaption,
 
 .leadership-campus-snapshot {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
   gap: 8px;
 }
 
@@ -987,13 +1092,11 @@ figcaption,
 }
 
 .campus-vacancy-name {
-  overflow: hidden;
   color: var(--ink-soft);
   font-size: 0.82rem;
   font-weight: 860;
-  text-overflow: ellipsis;
+  line-height: 1.15;
   text-transform: uppercase;
-  white-space: nowrap;
 }
 
 .campus-vacancy-detail {
