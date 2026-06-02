@@ -1082,6 +1082,11 @@ figcaption,
   background: #fbffe2;
 }
 
+.campus-vacancy-card.urgent {
+  border-color: #d7802b;
+  background: #fff7ea;
+}
+
 .campus-vacancy-card.critical {
   border-color: var(--red);
   background: #fff0f2;

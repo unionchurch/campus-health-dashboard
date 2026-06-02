@@ -1,5 +1,5 @@
-import dashboardData from "./dashboard-data.js?v=20260526-health-target-single-grade";
-import { setupLiveExcel } from "./live-excel.js?v=20260526-health-target-single-grade";
+import dashboardData from "./dashboard-data.js?v=20260602-baptism-sheet";
+import { setupLiveExcel } from "./live-excel.js?v=20260602-baptism-sheet";
 
 let data = dashboardData;
 
@@ -18,6 +18,7 @@ const metricOrder = [
   "kids",
   "growthTrack",
   "salvations",
+  "baptism",
   "firstTimers",
   "dreamTeam",
   "healthReport",
@@ -937,6 +938,30 @@ function movementStats(row) {
   };
 }
 
+function metricSundayLabel(metricKey = state.metric) {
+  return metricKey === "baptism" ? "baptism Sunday" : "Sunday";
+}
+
+function metricArchiveLabel(metricKey = state.metric) {
+  return metricKey === "baptism" ? "Baptism Sunday archive" : "Sunday archive";
+}
+
+function previousMetricKpiLabel(metricKey = state.metric) {
+  return metricKey === "baptism" ? "previous baptism Sunday" : "last Sunday";
+}
+
+function previousMetricComparisonLabel(metricKey = state.metric) {
+  return metricKey === "baptism" ? "previous baptism Sunday" : "previous Sunday";
+}
+
+function recentMetricSundayLabel(metricKey = state.metric) {
+  return metricKey === "baptism" ? "recent baptism Sundays" : "recent Sundays";
+}
+
+function baselineMetricSundayLabel(metricKey = state.metric) {
+  return metricKey === "baptism" ? "Against the last four baptism Sundays" : "Against the last four regular Sundays";
+}
+
 function renderKpis(points) {
   const context = selectedPointContext(points);
   const latest = context.current;
@@ -967,30 +992,36 @@ function renderKpis(points) {
       label: latestLabel,
       value: formatNumber(latest?.value),
       note: latest
-        ? `${context.isArchive ? "Sunday archive" : "Most recent Sunday"}, ${shortDate(latest.date)}`
+        ? `${context.isArchive ? metricArchiveLabel() : `Most recent ${metricSundayLabel()}`}, ${shortDate(latest.date)}`
         : "No data",
     },
     {
-      label: "Since last Sunday",
+      label: `Since ${previousMetricKpiLabel()}`,
       value: formatPct(weekChange),
       valueClass: toneClass(weekChange),
       note: previous ? `Compared with ${shortDate(previous.date)}` : "No comparison",
     },
     {
-      label: "Compared with recent Sundays",
+      label: `Compared with ${recentMetricSundayLabel()}`,
       value: formatPct(baselineDelta),
       valueClass: toneClass(baselineDelta),
-      note: "Against the last four regular Sundays",
+      note: baselineMetricSundayLabel(),
     },
-    {
-      label: "Compared with last year",
-      value: formatPct(yoy),
-      valueClass: toneClass(yoy),
-      note:
-        state.metric === "attendance" && (priorYear || data.yoy)
-          ? `Same season last year: ${shortDate(priorYear?.date || data.yoy.matchedDate)}`
-          : "Shown on attendance only",
-    },
+    state.metric === "baptism"
+      ? {
+          label: "Baptism Sundays Tracked",
+          value: formatNumber(points.length),
+          note: "Only Sundays with baptisms are charted",
+        }
+      : {
+          label: "Compared with last year",
+          value: formatPct(yoy),
+          valueClass: toneClass(yoy),
+          note:
+            state.metric === "attendance" && (priorYear || data.yoy)
+              ? `Same season last year: ${shortDate(priorYear?.date || data.yoy.matchedDate)}`
+              : "Shown on attendance only",
+        },
   ];
 
   els.kpis.innerHTML = kpis
@@ -1031,7 +1062,7 @@ function chartNoteLines(note, maxChars = 28, maxLines = 2) {
   return lines.slice(0, maxLines);
 }
 
-const movementContextMetrics = ["kids", "dreamTeam", "growthTrack", "firstTimers", "salvations", "baptism"];
+const attendanceLinkedMetrics = ["kids", "dreamTeam", "firstTimers"];
 
 function scopedMetricValue(metricKey, date) {
   const campuses = state.campus === "All Campuses" ? data.campuses : [state.campus];
@@ -1150,7 +1181,7 @@ function chartContextLines(point, index, points) {
   if (state.metric === "attendance") {
     const attendanceChange = pctChange(point.value, previous.value);
     const direction = attendanceChange < 0 ? -1 : attendanceChange > 0 ? 1 : 0;
-    return movementContextMetrics
+    return attendanceLinkedMetrics
       .map((metricKey) => metricChangeOnDates(metricKey, point.date, previous.date))
       .filter((row) => row.delta !== null && row.delta !== 0)
       .filter((row) => !direction || Math.sign(row.delta) === direction)
@@ -1353,7 +1384,15 @@ function renderBars() {
   renderDreamTeamCampusBreakdown(selectedDate);
   if (els.barKicker) {
     els.barKicker.textContent =
-      state.metric === "dreamTeam" ? "Dream Team Detail" : isArchive ? "Sunday Archive" : "Most Recent Sunday";
+      state.metric === "dreamTeam"
+        ? "Dream Team Detail"
+        : isArchive
+          ? state.metric === "baptism"
+            ? "Baptism Sunday Archive"
+            : "Sunday Archive"
+          : state.metric === "baptism"
+            ? "Most Recent Baptism Sunday"
+            : "Most Recent Sunday";
   }
 
   if (state.metric === "dreamTeam") {
@@ -1726,10 +1765,11 @@ function metricMovementInsights() {
     .sort((a, b) => a.changePct - b.changePct);
   const insights = [];
 
-  const writeCampusPrompt = (row, direction) =>
+  const previousLabel = previousMetricComparisonLabel(state.metric);
+  const writeCampusPrompt = (row) =>
     state.campus === "All Campuses"
-      ? `${row.campus} moved ${formatPct(row.changePct)} (${formatSignedNumber(row.delta)}) from the previous Sunday. Ask what changed and whether it should be repeated or corrected.`
-      : `${state.campus} moved ${formatPct(row.changePct)} (${formatSignedNumber(row.delta)}) from the previous Sunday. Review what changed in the weekend experience and reporting.`;
+      ? `${row.campus} moved ${formatPct(row.changePct)} (${formatSignedNumber(row.delta)}) from the ${previousLabel}. Ask what changed and whether it should be repeated or corrected.`
+      : `${state.campus} moved ${formatPct(row.changePct)} (${formatSignedNumber(row.delta)}) from the ${previousLabel}. Review what changed in the weekend experience and reporting.`;
 
   if (surged.length) {
     const top = surged[0];
@@ -1738,7 +1778,7 @@ function metricMovementInsights() {
         state.campus === "All Campuses"
           ? `${top.campus} had a ${label} surge`
           : `${label} surged at ${state.campus}`,
-      body: writeCampusPrompt(top, "surge"),
+      body: writeCampusPrompt(top),
       severity: "info",
     });
   }
@@ -1750,7 +1790,7 @@ function metricMovementInsights() {
         state.campus === "All Campuses"
           ? `${low.campus} had a large ${label} drop`
           : `${label} dropped sharply at ${state.campus}`,
-      body: writeCampusPrompt(low, "drop"),
+      body: writeCampusPrompt(low),
       severity: Math.abs(low.changePct) >= threshold * 1.75 ? "critical" : "warning",
     });
   }
@@ -1787,7 +1827,7 @@ function attendanceCategoryContributionInsights() {
   if (!isFiniteNumber(attendanceChange) || attendanceChange === 0) return [];
 
   const direction = attendanceChange < 0 ? -1 : 1;
-  const movers = movementContextMetrics
+  const movers = attendanceLinkedMetrics
     .map((metricKey) => metricChangeOnDates(metricKey, latest.date, previous.date))
     .filter((row) => row.delta !== null && row.delta !== 0 && Math.sign(row.delta) === direction)
     .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
@@ -2275,10 +2315,24 @@ function averageNumbers(values) {
   return usable.reduce((sum, value) => sum + value, 0) / usable.length;
 }
 
+function medianNumbers(values) {
+  const usable = values
+    .filter((value) => typeof value === "number" && Number.isFinite(value))
+    .sort((a, b) => a - b);
+  if (!usable.length) return null;
+  const middle = Math.floor(usable.length / 2);
+  return usable.length % 2 ? usable[middle] : (usable[middle - 1] + usable[middle]) / 2;
+}
+
 function sumNumbers(values) {
   const usable = values.filter((value) => typeof value === "number" && Number.isFinite(value));
   if (!usable.length) return null;
   return usable.reduce((sum, value) => sum + value, 0);
+}
+
+function clampNumber(value, min, max) {
+  if (!isFiniteNumber(value)) return null;
+  return Math.min(max, Math.max(min, value));
 }
 
 function metricValueOnDate(metricKey, campuses, date) {
@@ -2303,6 +2357,15 @@ function attendanceDatesForMonth(campuses, month) {
     }
   }
   return Array.from(dates).sort();
+}
+
+function attendanceAverageForMonth(campuses, month) {
+  const dates = month ? attendanceDatesForMonth(campuses, month) : [];
+  return averageNumbers(dates.map((date) => metricValueOnDate("attendance", campuses, date)));
+}
+
+function campusAttendanceMedian(month) {
+  return medianNumbers(data.campuses.map((campus) => attendanceAverageForMonth([campus], month)));
 }
 
 function historyValueOnDate(series, campuses, date) {
@@ -2575,10 +2638,19 @@ function leadershipSummary(campuses, month) {
 }
 
 const leadershipRoleOrder = ["Director", "Coordinator", "Team Lead"];
+const leadershipRoleWeights = {
+  Director: 4,
+  Coordinator: 2.5,
+  "Team Lead": 1,
+};
 
 function leadershipRoleRank(role) {
   const rank = leadershipRoleOrder.findIndex((item) => item.toLowerCase() === String(role || "").toLowerCase());
   return rank === -1 ? leadershipRoleOrder.length : rank;
+}
+
+function leadershipRoleWeight(role) {
+  return leadershipRoleWeights[role] || 1;
 }
 
 function leadershipRoleLabel(role) {
@@ -2586,11 +2658,67 @@ function leadershipRoleLabel(role) {
   return `${role}s`;
 }
 
+function campusSizeMultiplier(attendanceAvg, month) {
+  const medianAttendance = campusAttendanceMedian(month);
+  if (!attendanceAvg || !medianAttendance) return 1;
+  return clampNumber(Math.sqrt(medianAttendance / attendanceAvg), 0.75, 1.65) || 1;
+}
+
+function leadershipVacancyWeightedScore(leadership) {
+  const values = leadership.roles.map((role) =>
+    isFiniteNumber(role.vacancies) ? role.vacancies * leadershipRoleWeight(role.role) : null,
+  );
+  return sumNumbers(values);
+}
+
+function leadershipVacancyGrade(impactScore, vacancies) {
+  if (vacancies === null || vacancies === undefined || Number.isNaN(vacancies)) return null;
+  if (vacancies <= 0 || impactScore <= 0) return 1;
+  if (impactScore <= 1.25) return 3;
+  if (impactScore <= 2.5) return 4;
+  if (impactScore <= 4.5) return 6;
+  if (impactScore <= 7) return 8;
+  return 10;
+}
+
+function campusLeadershipVacancyImpact(campus, month, leadershipOverride = null, attendanceAvgOverride = null) {
+  const leadership = leadershipOverride || leadershipSummary([campus], month);
+  const attendanceAvg = attendanceAvgOverride ?? attendanceAverageForMonth([campus], month);
+  const weightedScore = leadershipVacancyWeightedScore(leadership);
+  const sizeMultiplier = campusSizeMultiplier(attendanceAvg, month);
+  const impactScore = weightedScore === null ? null : weightedScore * sizeMultiplier;
+  const grade = leadershipVacancyGrade(impactScore, leadership.vacancies);
+  const status = grade === null ? { label: "Info", tone: "neutral", grade: null } : severityFromGrade(grade);
+  return {
+    attendanceAvg,
+    weightedScore,
+    sizeMultiplier,
+    impactScore,
+    ...status,
+  };
+}
+
+function leadershipVacancyStatus(campuses, month, attendanceAvg, leadership) {
+  if (!campuses.length) return { label: "Info", tone: "neutral", grade: null };
+  if (campuses.length === 1) {
+    return campusLeadershipVacancyImpact(campuses[0], month, leadership, attendanceAvg);
+  }
+
+  const campusImpacts = campuses.map((campus) => campusLeadershipVacancyImpact(campus, month));
+  const grades = campusImpacts.map((impact) => impact.grade).filter(isFiniteNumber);
+  if (!grades.length) return { label: "Info", tone: "neutral", grade: null };
+  const averageGrade = averageNumbers(grades);
+  const highestGrade = Math.max(...grades);
+  const grade = Number((averageGrade + (highestGrade - averageGrade) * 0.35).toFixed(1));
+  return { ...severityFromGrade(grade), grade };
+}
+
 function campusLeadershipVacancyRows(month) {
   if (!month) return [];
   return data.campuses
     .map((campus) => {
       const leadership = leadershipSummary([campus], month);
+      const impact = campusLeadershipVacancyImpact(campus, month, leadership);
       const roleVacancies = leadership.roles
         .filter((role) => isFiniteNumber(role.vacancies) && role.vacancies > 0)
         .sort((a, b) => leadershipRoleRank(a.role) - leadershipRoleRank(b.role));
@@ -2607,6 +2735,7 @@ function campusLeadershipVacancyRows(month) {
         filled: leadership.filled,
         target: leadership.target,
         fillPct: leadership.fillPct,
+        impact,
         priorityRank: roleVacancies[0] ? leadershipRoleRank(roleVacancies[0].role) : leadershipRoleOrder.length,
         roleDetails: roleVacancies.map((role) => ({
           role: role.role,
@@ -2621,7 +2750,10 @@ function campusLeadershipVacancyRows(month) {
     )
     .sort(
       (a, b) =>
-        a.priorityRank - b.priorityRank || (b.vacancies || 0) - (a.vacancies || 0) || a.campus.localeCompare(b.campus),
+        (b.impact.grade ?? -1) - (a.impact.grade ?? -1) ||
+        a.priorityRank - b.priorityRank ||
+        (b.vacancies || 0) - (a.vacancies || 0) ||
+        a.campus.localeCompare(b.campus),
     );
 }
 
@@ -2641,8 +2773,9 @@ function buildHealthReport(selectedMonth = selectedHealthMonth(), campusesOverri
   const activeDreamTeam = activeDreamTeamForMonth(campuses, month, attendanceAvg);
   const groupWeeks = groupAttendanceByWeek(campuses, month);
   const leadership = leadershipSummary(campuses, month);
+  const leadershipVacancyAttention = leadershipVacancyStatus(campuses, month, attendanceAvg, leadership);
 
-  const row = (key, weeklyValues, monthValue, format, source, statusValue = monthValue) => ({
+  const row = (key, weeklyValues, monthValue, format, source, statusValue = monthValue, statusOverride = null) => ({
     key,
     label: healthTarget(key).label || key,
     optimal: targetLabel(key),
@@ -2650,7 +2783,7 @@ function buildHealthReport(selectedMonth = selectedHealthMonth(), campusesOverri
     monthValue,
     format,
     source,
-    status: healthStatus(key, statusValue),
+    status: statusOverride || healthStatus(key, statusValue),
   });
 
   const ratioRow = (key, metricKey, source = "Weekly workbook") =>
@@ -2740,7 +2873,15 @@ function buildHealthReport(selectedMonth = selectedHealthMonth(), campusesOverri
       return row(key, dates.map(() => null), summary.pct, "pct", "Heart Soul Input");
     }),
     row("leadershipFillPct", dates.map(() => null), leadership.fillPct, "pct", "Leadership Input"),
-    row("leadershipVacancies", dates.map(() => null), leadership.vacancies, "count", "Leadership Input"),
+    row(
+      "leadershipVacancies",
+      dates.map(() => null),
+      leadership.vacancies,
+      "count",
+      "Leadership Input",
+      leadership.vacancies,
+      leadershipVacancyAttention,
+    ),
   ];
 
   return { campuses, month, dates, rows, groupWeeks, leadership };
@@ -3153,7 +3294,7 @@ function renderCampusVacancySnapshot(report) {
   const campusesWithVacancies = rows.filter((row) => (row.vacancies || 0) > 0).length;
   els.leadershipCampusMeta.textContent =
     totalVacancies !== null
-      ? `${formatNumber(totalVacancies)} total · ${formatNumber(campusesWithVacancies)} campuses`
+      ? `${formatNumber(totalVacancies)} total · ${formatNumber(campusesWithVacancies)} campuses · ranked by impact`
       : "Needs data";
 
   if (!rows.length) {
@@ -3169,7 +3310,7 @@ function renderCampusVacancySnapshot(report) {
       const vacancies = isFiniteNumber(row.vacancies) ? row.vacancies : null;
       const width = vacancies ? Math.max(8, (vacancies / maxVacancies) * 100) : 0;
       const statusClass =
-        vacancies === null ? "needs-data" : vacancies === 0 ? "clear" : vacancies >= 5 ? "critical" : "watch";
+        vacancies === null ? "needs-data" : vacancies === 0 ? "clear" : row.impact.tone || "watch";
       const roleDetails = row.roleDetails?.length
         ? `
           <div class="campus-vacancy-roles">
@@ -4132,7 +4273,7 @@ function renderTrendMeta(context) {
   if (context.isArchive) {
     els.trendMeta.innerHTML = `
       <span class="archive-meta">
-        <span>Sunday Archive: ${formatDate(current.date)}</span>
+        <span>${state.metric === "baptism" ? "Baptism Sunday Archive" : "Sunday Archive"}: ${formatDate(current.date)}</span>
         <button class="archive-reset" type="button">Back to latest</button>
       </span>
     `;
@@ -4145,7 +4286,7 @@ function renderTrendMeta(context) {
 
   els.trendMeta.textContent = `${formatNumber(current.value)} most recent, ${formatPct(
     context.weekChange,
-  )} since last Sunday`;
+  )} since ${previousMetricKpiLabel()}`;
 }
 
 function updateDashboard() {

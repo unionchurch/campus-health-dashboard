@@ -35,15 +35,6 @@ const CORE_METRIC_SHEETS = {
   "Sunday - Dream Team": "dreamTeam",
 };
 
-const OPTIONAL_METRIC_SHEETS = {
-  Baptism: "baptism",
-};
-
-const METRIC_SHEETS = {
-  ...CORE_METRIC_SHEETS,
-  ...OPTIONAL_METRIC_SHEETS,
-};
-
 const DISPLAY_NAMES = {
   attendance: "Attendance",
   kids: "Kids",
@@ -286,13 +277,14 @@ async function graphJson(token, path, options = {}) {
 
 function buildDashboardData(sheets, driveItem) {
   const metrics = {};
-  for (const [sheetName, key] of Object.entries(METRIC_SHEETS)) {
-    metrics[key] = extractMetricSheet(sheets[sheetName]);
+  for (const [sheetName, key] of Object.entries(CORE_METRIC_SHEETS)) {
+    metrics[key] = extractMetricSheet(sheets[sheetName], { metricKey: key });
   }
 
   const attendanceSeries = metrics.attendance.series;
   const campuses = Object.keys(attendanceSeries);
   const latestDate = latestCommonDate(attendanceSeries);
+  metrics.baptism = extractBaptismSheet(sheets.Baptism, campuses, yearFromIso(latestDate) || new Date().getFullYear());
   const campusStats = campusStatistics(attendanceSeries, latestDate);
   const totals = totalSeries(attendanceSeries);
   const yoy = extract2025Yoy(sheets["2025"], campuses, latestDate);
@@ -458,6 +450,11 @@ function isSunday(iso) {
   return parseIsoDate(iso).getDay() === 0;
 }
 
+function isFifthSunday(iso) {
+  const date = parseIsoDate(iso);
+  return date.getDay() === 0 && date.getDate() >= 29;
+}
+
 function normalizeValue(value) {
   if (Number.isInteger(value)) return value;
   return Math.round(value * 100) / 100;
@@ -498,7 +495,11 @@ function classifyEvent(label) {
   return text ? "program" : "normal";
 }
 
-function extractMetricSheet(range) {
+function shouldSkipMetricDate(metricKey, dateIso) {
+  return metricKey === "growthTrack" && isFifthSunday(dateIso);
+}
+
+function extractMetricSheet(range, { metricKey = null } = {}) {
   const values = matrix(range, "values");
   const text = matrix(range, "text");
   const headers = [];
@@ -507,6 +508,7 @@ function extractMetricSheet(range) {
     const dateIso = asDate(values[1]?.[col], text[1]?.[col]);
     if (!dateIso) continue;
     const event = cleanText(text[0]?.[col] || values[0]?.[col]);
+    if (shouldSkipMetricDate(metricKey, dateIso)) continue;
     headers.push({
       col,
       date: dateIso,
@@ -529,6 +531,70 @@ function extractMetricSheet(range) {
     ) {
       break;
     }
+
+    series[campus] = headers
+      .map((header) => {
+        const value = asNumber(values[row]?.[header.col], text[row]?.[header.col]);
+        if (value === null) return null;
+        return {
+          date: header.date,
+          value: normalizeValue(value),
+          event: header.event,
+          eventType: header.eventType,
+          isSunday: header.isSunday,
+        };
+      })
+      .filter(Boolean);
+  }
+
+  return { headers, series };
+}
+
+function extractBaptismSheet(range, campuses = [], defaultYear = new Date().getFullYear()) {
+  const values = matrix(range, "values");
+  const text = matrix(range, "text");
+  if (!values.length) return { headers: [], series: {} };
+
+  const fallback = () => extractMetricSheet(range, { metricKey: "baptism" });
+  let weeklyRow = -1;
+  for (let row = 0; row < values.length; row += 1) {
+    const label = normalizeHeader(text[row]?.[0] || values[row]?.[0]);
+    if (label !== "weekly") continue;
+    const dateCount = (values[row] || []).filter((_, col) =>
+      col > 0 && asDate(values[row]?.[col], text[row]?.[col], defaultYear),
+    ).length;
+    if (dateCount) {
+      weeklyRow = row;
+      break;
+    }
+  }
+
+  if (weeklyRow < 0) return fallback();
+
+  const eventRow = weeklyRow - 2;
+  const headers = [];
+  for (let col = 1; col < (values[weeklyRow]?.length || 0); col += 1) {
+    const dateIso = asDate(values[weeklyRow]?.[col], text[weeklyRow]?.[col], defaultYear);
+    if (!dateIso) continue;
+    const event = cleanText(text[eventRow]?.[col] || values[eventRow]?.[col]);
+    headers.push({
+      col,
+      date: dateIso,
+      event,
+      eventType: classifyEvent(event),
+      isSunday: isSunday(dateIso),
+    });
+  }
+
+  if (!headers.length) return fallback();
+
+  const series = {};
+  for (let row = weeklyRow + 1; row < values.length; row += 1) {
+    const rawCampus = cleanText(text[row]?.[0] || values[row]?.[0]);
+    if (!rawCampus) continue;
+    const lower = rawCampus.toLowerCase();
+    if (lower.startsWith("total") || lower.startsWith("monthly") || lower.startsWith("quarter")) break;
+    const campus = canonicalCampusName(rawCampus, campuses);
 
     series[campus] = headers
       .map((header) => {
