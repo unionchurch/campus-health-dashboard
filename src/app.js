@@ -1,5 +1,5 @@
-import dashboardData from "./dashboard-data.js?v=20260608-health-export";
-import { setupLiveExcel } from "./live-excel.js?v=20260608-health-export";
+import dashboardData from "./dashboard-data.js?v=20260609-group-baseline";
+import { setupLiveExcel } from "./live-excel.js?v=20260609-group-baseline";
 
 let data = dashboardData;
 
@@ -2564,10 +2564,63 @@ function healthStatus(key, value) {
 }
 
 function configCoversMonth(row, month) {
-  if (!row.startDate && !row.endDate) return true;
-  const start = row.startDate ? row.startDate.slice(0, 7) : month;
-  const end = row.endDate ? row.endDate.slice(0, 7) : month;
+  if (row.month) return row.month === month;
+  if (row.startDate || row.endDate) {
+    const start = row.startDate ? row.startDate.slice(0, 7) : month;
+    const end = row.endDate ? row.endDate.slice(0, 7) : month;
+    return month >= start && month <= end;
+  }
+  const semesterRange = semesterMonthRange(row, month);
+  if (!semesterRange) return true;
+  const { start, end } = semesterRange;
   return month >= start && month <= end;
+}
+
+function previousMonthKey(month) {
+  if (!month) return null;
+  const [year, monthNumber] = month.split("-").map(Number);
+  if (!year || !monthNumber) return null;
+  const date = new Date(year, monthNumber - 2, 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function semesterYear(row, fallbackMonth) {
+  if (isFiniteNumber(row.year)) return Math.round(row.year);
+  const source = row.startDate || row.month || fallbackMonth;
+  return source ? Number(source.slice(0, 4)) : null;
+}
+
+function semesterStartMonth(row, fallbackMonth) {
+  if (row.startDate) return row.startDate.slice(0, 7);
+  const year = semesterYear(row, fallbackMonth);
+  if (!year) return row.month || fallbackMonth;
+  const semester = normalizeText(row.semester);
+  if (semester.includes("summer")) return `${year}-06`;
+  if (semester.includes("fall")) return `${year}-09`;
+  if (semester.includes("spring")) return `${year}-02`;
+  return row.month || fallbackMonth;
+}
+
+function semesterEndMonth(row, fallbackMonth) {
+  if (row.endDate) return row.endDate.slice(0, 7);
+  const year = semesterYear(row, fallbackMonth);
+  if (!year) return row.month || fallbackMonth;
+  const semester = normalizeText(row.semester);
+  if (semester.includes("summer")) return `${year}-08`;
+  if (semester.includes("fall")) return `${year}-12`;
+  if (semester.includes("spring")) return `${year}-05`;
+  return row.month || fallbackMonth;
+}
+
+function semesterMonthRange(row, fallbackMonth) {
+  if (!row.semester) return null;
+  const start = semesterStartMonth(row, fallbackMonth);
+  const end = semesterEndMonth(row, fallbackMonth);
+  return start && end ? { start, end } : null;
+}
+
+function groupBaselineMonth(row, reportMonth) {
+  return row.baselineMonth || previousMonthKey(semesterStartMonth(row, reportMonth)) || previousMonthKey(reportMonth);
 }
 
 function sumConfig(rows, field) {
@@ -2584,7 +2637,31 @@ function groupConfigFor(campuses, month) {
     activeGroups: sumConfig(rows, "activeGroups"),
     groupSignups: sumConfig(rows, "groupSignups"),
     totalGroupMembers: sumConfig(rows, "totalGroupMembers"),
+    baselineAttendance: groupBaselineAttendance(rows, campuses, month),
   };
+}
+
+function groupBaselineAttendance(rows, campuses, month) {
+  const baselineMonths = Array.from(new Set(rows.map((row) => groupBaselineMonth(row, month)).filter(Boolean)));
+  if (!baselineMonths.length) return null;
+
+  if (baselineMonths.length === 1) {
+    const rowCampuses = Array.from(new Set(rows.map((row) => row.campus).filter(Boolean)));
+    const campusesForAverage = rowCampuses.length ? rowCampuses : campuses;
+    return attendanceAverageForMonth(campusesForAverage, baselineMonths[0]);
+  }
+
+  const seen = new Set();
+  const values = [];
+  for (const row of rows) {
+    const baselineMonth = groupBaselineMonth(row, month);
+    if (!row.campus || !baselineMonth) continue;
+    const key = `${row.campus}::${baselineMonth}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    values.push(attendanceAverageForMonth([row.campus], baselineMonth));
+  }
+  return sumNumbers(values);
 }
 
 function activeDreamTeamForMonth(campuses, month, attendanceAvg) {
@@ -2794,6 +2871,7 @@ function buildHealthReport(selectedMonth = selectedHealthMonth(), campusesOverri
   });
   const attendanceYoy = averageNumbers(attendanceYoyValues);
   const config = groupConfigFor(campuses, month);
+  const groupAttendanceDenominator = config?.baselineAttendance ?? null;
   const activeDreamTeam = activeDreamTeamForMonth(campuses, month, attendanceAvg);
   const groupWeeks = groupAttendanceByWeek(campuses, month);
   const leadership = leadershipSummary(campuses, month);
@@ -2873,11 +2951,11 @@ function buildHealthReport(selectedMonth = selectedHealthMonth(), campusesOverri
     row(
       "groupsPct",
       dates.map(() => null),
-      config?.activeGroups !== null && config?.activeGroups !== undefined && attendanceAvg
-        ? (config.activeGroups / attendanceAvg) * 100
+      config?.activeGroups !== null && config?.activeGroups !== undefined && groupAttendanceDenominator
+        ? (config.activeGroups / groupAttendanceDenominator) * 100
         : null,
       "pct",
-      "Group Semester Config",
+      "Groups Goals",
     ),
     row(
       "groupGoalPct",
@@ -2886,16 +2964,16 @@ function buildHealthReport(selectedMonth = selectedHealthMonth(), campusesOverri
         ? (config.activeGroups / config.groupGoal) * 100
         : null,
       "pct",
-      "Group Semester Config",
+      "Groups Goals",
     ),
     row(
       "groupMembersPct",
       dates.map(() => null),
-      config?.totalGroupMembers !== null && config?.totalGroupMembers !== undefined && attendanceAvg
-        ? (config.totalGroupMembers / attendanceAvg) * 100
+      config?.totalGroupMembers !== null && config?.totalGroupMembers !== undefined && groupAttendanceDenominator
+        ? (config.totalGroupMembers / groupAttendanceDenominator) * 100
         : null,
       "pct",
-      "Group Semester Config",
+      "Groups Goals",
     ),
     row(
       "groupAttendancePct",

@@ -173,7 +173,10 @@ async function readWorkbookData(token, driveItem) {
   );
   sheets["Active Dream Team"] = await tryReadRange("Active Dream Team", "A1:Z80");
   sheets["Health Targets"] = await tryReadRange("Health Targets", "A1:H150");
-  sheets["Group Semester Config"] = await tryReadRange("Group Semester Config", "A1:K500");
+  sheets["Group Semester Config"] = await tryReadFirstRange(
+    ["Groups Goals", "Group Goals", "Group Semester Config", "Group Configure", "Groups Configure"],
+    "A1:Z1200",
+  );
   sheets["Group Health Input"] = await tryReadRange("Group Health Input", "A1:L1200");
   sheets["Group Attendance"] = await tryReadFirstRange(
     ["Group Attendance", "Groups Attendance", "Group Attendance Input", "Groups Health Input"],
@@ -1432,20 +1435,70 @@ function extractHealthTargets(range) {
 }
 
 function extractGroupConfig(range) {
-  return tableRows(range, ["campus", "group_goal"])
+  return tableRows(range, ["campus"])
     .map((row) => ({
+      month: groupConfigMonth(row),
+      baselineMonth: rowMonth(row, [
+        "baseline_month",
+        "attendance_baseline_month",
+        "pre_groups_month",
+        "pre_group_month",
+        "comparison_month",
+      ]),
       semester: rowText(row, ["semester"]),
       year: rowNumber(row, ["year"]),
       startDate: rowDate(row, ["start_date", "semester_start", "start"]),
       endDate: rowDate(row, ["end_date", "semester_end", "end"]),
       campus: rowText(row, ["campus"]),
-      groupGoal: rowNumber(row, ["group_goal", "groups_goal", "goal"]),
-      activeGroups: rowNumber(row, ["active_groups", "total_groups", "groups"]),
-      groupSignups: rowNumber(row, ["group_signups", "signups", "people_signed_up"]),
-      totalGroupMembers: rowNumber(row, ["total_group_members", "group_members", "members"]),
+      groupGoal: rowNumber(row, [
+        "group_goal",
+        "group_goals",
+        "groups_goal",
+        "groups_goals",
+        "total_group_goal",
+        "semester_group_goal",
+        "goal",
+      ]),
+      activeGroups: rowNumber(row, [
+        "active_groups",
+        "total_groups",
+        "groups",
+        "group_count",
+        "number_of_groups",
+        "of_groups",
+      ]),
+      groupSignups: rowNumber(row, [
+        "group_signups",
+        "group_sign_ups",
+        "signups",
+        "sign_ups",
+        "signup_count",
+        "sign_up_count",
+        "people_signed_up",
+        "registered",
+      ]),
+      totalGroupMembers: rowNumber(row, [
+        "total_group_members",
+        "group_members",
+        "members",
+        "total_members",
+        "group_member_count",
+      ]),
       notes: rowText(row, ["notes"]),
     }))
     .filter((row) => row.campus);
+}
+
+function groupConfigMonth(row) {
+  const year = rowNumber(row, ["year"]);
+  const directMonth = rowMonth(row, ["month", "report_month", "month_start"]);
+  if (directMonth && (!year || directMonth.startsWith(`${Math.round(year)}-`))) return directMonth;
+
+  const monthText = rowText(row, ["month", "report_month"]);
+  const monthNumber = monthNumberFromHeader(monthText);
+  if (year && monthNumber) return `${Math.round(year)}-${String(monthNumber).padStart(2, "0")}`;
+
+  return directMonth;
 }
 
 function extractLongGroupAttendance(range) {
