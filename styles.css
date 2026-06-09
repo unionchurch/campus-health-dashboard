@@ -741,6 +741,22 @@ figcaption,
   gap: 14px;
 }
 
+.secondary-action {
+  min-height: 38px;
+  padding: 0 14px;
+  color: #000000;
+  background: var(--green);
+  border: 2px solid var(--green);
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 820;
+  white-space: nowrap;
+}
+
+.secondary-action:hover {
+  filter: brightness(0.96);
+}
+
 .health-header-actions .panel-meta {
   padding-bottom: 10px;
 }
@@ -749,9 +765,51 @@ figcaption,
   min-width: 210px;
 }
 
+.print-report-header {
+  display: none;
+}
+
 .health-insight-grid {
   grid-template-columns: repeat(5, minmax(0, 1fr));
   padding-bottom: 18px;
+}
+
+.health-insight-grid.campus-health-insights {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.campus-health-insight-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.campus-health-insight-column {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  min-width: 0;
+}
+
+.campus-health-insight-heading {
+  display: grid;
+  gap: 3px;
+  min-height: 58px;
+  padding: 2px 4px 10px;
+  border-bottom: 2px solid var(--line);
+  text-align: center;
+}
+
+.campus-health-insight-heading strong {
+  font-family: var(--display-font);
+  font-size: 1rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.campus-health-insight-list {
+  display: grid;
+  gap: 10px;
 }
 
 .compact-field {
@@ -810,6 +868,7 @@ figcaption,
   height: 36px;
   padding: 8px 10px;
   border-bottom: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
@@ -818,6 +877,7 @@ figcaption,
   background: var(--green);
   font-size: 0.78rem;
   font-weight: 780;
+  text-align: right;
   text-transform: uppercase;
 }
 
@@ -825,6 +885,7 @@ figcaption,
   color: var(--text);
   background: var(--surface);
   font-size: 0.9rem;
+  text-align: right;
 }
 
 .health-report-table tbody tr:nth-child(even) td {
@@ -843,20 +904,34 @@ figcaption,
   min-width: 220px;
   color: var(--ink-soft);
   font-weight: 740;
+  text-align: left;
 }
 
-.health-table-wrap td:nth-child(2) {
+.health-table-wrap td:nth-child(2),
+.health-report-table th:first-child,
+.health-report-table th:nth-child(2) {
   color: var(--muted);
+  text-align: left;
+}
+
+.health-report-table th.grade-header,
+.health-report-table td.grade-cell {
+  width: 68px;
+  text-align: center;
+}
+
+.health-report-table th.status-header,
+.health-report-table td.status-cell {
+  width: 118px;
+  text-align: left;
 }
 
 .status-cell {
   font-weight: 700;
-  text-align: left;
 }
 
 .grade-cell {
   font-weight: 800;
-  text-align: center;
 }
 
 .status-cell.positive,
@@ -1041,6 +1116,62 @@ figcaption,
 
 .vacancy-fill {
   background: linear-gradient(90deg, var(--amber), var(--red));
+}
+
+.dir-coord-vacancy-detail {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.dir-coord-vacancy-section {
+  min-width: 0;
+  padding: 12px;
+  background: #ffffff;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+}
+
+.dir-coord-vacancy-section h3 {
+  margin: 0 0 10px;
+  color: var(--ink-soft);
+  font-family: var(--display-font);
+  font-size: 0.95rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.dir-coord-vacancy-section p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.dir-coord-vacancy-list {
+  display: grid;
+  gap: 7px;
+}
+
+.dir-coord-vacancy-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: baseline;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.dir-coord-dot {
+  color: var(--line);
+  font-weight: 800;
+}
+
+.dir-coord-vacancy-item strong {
+  color: var(--ink-soft);
+  font-weight: 850;
 }
 
 .leadership-campus-wrap {
@@ -1332,6 +1463,206 @@ tbody tr.active {
   background: var(--surface-2);
 }
 
+@media print {
+  @page {
+    size: letter landscape;
+    margin: 0.35in;
+  }
+
+  body.print-health-report,
+  body.print-health-report .shell {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    color: #000000;
+    background: #ffffff;
+  }
+
+  body.print-health-report * {
+    box-shadow: none !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  body.print-health-report .masthead,
+  body.print-health-report .toolbar,
+  body.print-health-report .metric-mode-panel:not([data-metric-panel="health"]),
+  body.print-health-report .health-month-field,
+  body.print-health-report .health-print-button,
+  body.print-health-report .health-header-actions {
+    display: none !important;
+  }
+
+  body.print-health-report .health-mode {
+    display: grid !important;
+    gap: 10px;
+    margin: 0;
+  }
+
+  body.print-health-report .print-report-header {
+    display: block;
+    margin: 0 0 12px;
+    padding: 0 0 8px;
+    border-bottom: 3px solid #c4d72c;
+  }
+
+  body.print-health-report .print-report-header p {
+    margin: 0 0 3px;
+    color: #2a262b;
+    font-size: 8pt;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  body.print-health-report .print-report-header h1 {
+    margin: 0;
+    color: #000000;
+    font-size: 24pt;
+    line-height: 1;
+  }
+
+  body.print-health-report .print-report-header span {
+    display: block;
+    margin-top: 4px;
+    color: #625d62;
+    font-size: 9pt;
+    font-weight: 700;
+  }
+
+  body.print-health-report .panel {
+    overflow: visible;
+    background: #ffffff;
+    border: 1px solid #deded1;
+    border-radius: 0;
+    break-inside: avoid;
+  }
+
+  body.print-health-report .panel-heading,
+  body.print-health-report figcaption {
+    min-height: 0;
+    padding: 8px 10px 4px;
+  }
+
+  body.print-health-report .panel-kicker {
+    color: #2a262b;
+    font-size: 7pt;
+  }
+
+  body.print-health-report h2 {
+    color: #000000;
+    font-size: 12pt;
+  }
+
+  body.print-health-report .panel-meta {
+    color: #625d62;
+    font-size: 8pt;
+  }
+
+  body.print-health-report .health-overall-grid,
+  body.print-health-report .health-overall-grid.multi-campus {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    padding: 8px 10px 10px;
+  }
+
+  body.print-health-report .overall-grade-card {
+    min-height: 72px;
+    padding: 8px;
+    border-width: 1px;
+    border-radius: 0;
+  }
+
+  body.print-health-report .overall-grade-score {
+    font-size: 18pt;
+  }
+
+  body.print-health-report .overall-grade-status {
+    min-height: 0;
+    padding: 2px 5px;
+    font-size: 6.5pt;
+  }
+
+  body.print-health-report .table-wrap.health-table-wrap {
+    overflow: visible;
+  }
+
+  body.print-health-report .health-report-table {
+    width: 100%;
+    min-width: 0;
+    border-width: 1px;
+  }
+
+  body.print-health-report .health-report-table th,
+  body.print-health-report .health-report-table td {
+    height: auto;
+    padding: 4px 5px;
+    font-size: 7.5pt;
+    white-space: normal;
+  }
+
+  body.print-health-report .health-table-wrap td:first-child {
+    min-width: 0;
+  }
+
+  body.print-health-report .leadership-vacancy-chart {
+    min-height: 0;
+    padding: 6px 10px 10px;
+  }
+
+  body.print-health-report .leadership-row {
+    min-height: 32px;
+    margin-bottom: 6px;
+    grid-template-columns: minmax(120px, 0.7fr) minmax(0, 1.4fr) 40px;
+  }
+
+  body.print-health-report .leadership-role,
+  body.print-health-report .leadership-value {
+    font-size: 8pt;
+  }
+
+  body.print-health-report .leadership-subtext,
+  body.print-health-report .dir-coord-vacancy-item,
+  body.print-health-report .dir-coord-vacancy-section p {
+    font-size: 7pt;
+  }
+
+  body.print-health-report .dir-coord-vacancy-detail,
+  body.print-health-report .campus-health-insight-columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  body.print-health-report .dir-coord-vacancy-section,
+  body.print-health-report .campus-health-insight-column,
+  body.print-health-report .insight {
+    border-width: 1px;
+    border-radius: 0;
+  }
+
+  body.print-health-report .health-insight-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    padding: 8px 10px 10px;
+  }
+
+  body.print-health-report .health-insight-grid.campus-health-insights {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.print-health-report .insight {
+    padding: 8px;
+  }
+
+  body.print-health-report .insight-title {
+    font-size: 8pt;
+  }
+
+  body.print-health-report .insight-body {
+    font-size: 7.5pt;
+    line-height: 1.3;
+  }
+}
+
 @media (max-width: 1100px) {
   .toolbar,
   .layout,
@@ -1347,6 +1678,8 @@ tbody tr.active {
   .big-five-layout,
   .movement-summary,
   .attendance-insight-columns,
+  .campus-health-insight-columns,
+  .dir-coord-vacancy-detail,
   .health-insight-grid,
   .layout.attendance-stack .insights-panel .insight-list,
   .layout.takeaways-below .insights-panel .insight-list,

@@ -1,5 +1,5 @@
-import dashboardData from "./dashboard-data.js?v=20260602-baptism-sheet";
-import { setupLiveExcel } from "./live-excel.js?v=20260602-baptism-sheet";
+import dashboardData from "./dashboard-data.js?v=20260608-health-export";
+import { setupLiveExcel } from "./live-excel.js?v=20260608-health-export";
 
 let data = dashboardData;
 
@@ -37,6 +37,7 @@ const healthTargetDefaults = {
     optimalMax: 10,
     direction: "range",
   },
+  kidsCount: { label: "Kids", unit: "count" },
   kidsPct: { label: "Kids % of Attendance", unit: "%", optimalMin: 13, direction: "higher" },
   growthTrackPct: {
     label: "Growth Track %",
@@ -55,11 +56,13 @@ const healthTargetDefaults = {
     direction: "range",
   },
   dreamTeamPct: {
-    label: "Active Dream Team % of Attendance",
+    label: "Active Dream Team %",
     unit: "%",
     optimalMin: 33,
     direction: "higher",
   },
+  dreamTeamServing: { label: "Dream Team Serving", unit: "count" },
+  activeDreamTeamCount: { label: "Active Dream Team", unit: "count" },
   groupsPct: {
     label: "Total Groups %",
     unit: "%",
@@ -84,6 +87,9 @@ const healthTargetDefaults = {
 
 const healthOptimalLabels = {
   attendance: "Avg",
+  kidsCount: "Count",
+  dreamTeamServing: "Count",
+  activeDreamTeamCount: "Count",
   groupGoalPct: ">=100%",
   groupAttendancePct: "Higher",
   heartSoulTeamLeadPct: "If included",
@@ -91,6 +97,14 @@ const healthOptimalLabels = {
 };
 
 const healthTargetAliases = {
+  dreamTeamPct: [
+    "Dream Team %",
+    "Dream Team Percent",
+    "Dream Team Members %",
+    "Dream Team Members as % of Weekend Attendance",
+    "Active Dream Team %",
+    "Active Dream Team % of Attendance",
+  ],
   baptismPct: [
     "Baptism",
     "Baptisms",
@@ -278,8 +292,13 @@ const els = {
   bigFiveTableHead: document.querySelector("#bigFiveTableHead"),
   bigFiveTable: document.querySelector("#bigFiveTable"),
   healthMonthSelect: document.querySelector("#healthMonthSelect"),
+  healthPrintButton: document.querySelector("#healthPrintButton"),
+  healthPrintTitle: document.querySelector("#healthPrintTitle"),
+  healthPrintMeta: document.querySelector("#healthPrintMeta"),
   healthMonthMeta: document.querySelector("#healthMonthMeta"),
   healthReportMeta: document.querySelector("#healthReportMeta"),
+  healthInsightsKicker: document.querySelector("#healthInsightsKicker"),
+  healthInsightsTitle: document.querySelector("#healthInsightsTitle"),
   healthInsights: document.querySelector("#healthInsights"),
   healthOverallMeta: document.querySelector("#healthOverallMeta"),
   healthOverallGrid: document.querySelector("#healthOverallGrid"),
@@ -492,6 +511,7 @@ function setupControls() {
     state.healthMonth = event.target.value;
     updateDashboard();
   });
+  els.healthPrintButton?.addEventListener("click", printHealthReport);
 
   liveExcel = setupLiveExcel({
     onData: applyDashboardData,
@@ -2763,6 +2783,10 @@ function buildHealthReport(selectedMonth = selectedHealthMonth(), campusesOverri
   const dates = month ? attendanceDatesForMonth(campuses, month) : [];
   const attendanceValues = dates.map((date) => metricValueOnDate("attendance", campuses, date));
   const attendanceAvg = averageNumbers(attendanceValues);
+  const kidsValues = dates.map((date) => metricValueOnDate("kids", campuses, date));
+  const kidsAvg = averageNumbers(kidsValues);
+  const dreamTeamServingValues = dates.map((date) => metricValueOnDate("dreamTeam", campuses, date));
+  const dreamTeamServingAvg = averageNumbers(dreamTeamServingValues);
   const attendanceYoyValues = dates.map((date) => {
     const current = metricValueOnDate("attendance", campuses, date);
     const prior = nearestPriorAttendance(date, campuses)?.value;
@@ -2827,12 +2851,25 @@ function buildHealthReport(selectedMonth = selectedHealthMonth(), campusesOverri
       "signedPct",
       "Attendance + 2025 sheet",
     ),
+    row("kidsCount", kidsValues, kidsAvg, "count", "Kids sheet"),
     ratioRow("kidsPct", "kids"),
     ratioRow("growthTrackPct", "growthTrack"),
     ratioRow("baptismPct", "baptism", "Baptism sheet"),
     ratioRow("salvationsPct", "salvations"),
     ratioRow("firstTimersPct", "firstTimers"),
+    row("dreamTeamServing", dreamTeamServingValues, dreamTeamServingAvg, "count", "Sunday - Dream Team"),
+    row("activeDreamTeamCount", dates.map(() => null), activeDreamTeam.total, "count", "Active Dream Team"),
     row("dreamTeamPct", dates.map(() => null), activeDreamTeam.pct, "pct", "Active Dream Team"),
+    row(
+      "leadershipVacancies",
+      dates.map(() => null),
+      leadership.vacancies,
+      "count",
+      "Leadership Input",
+      leadership.vacancies,
+      leadershipVacancyAttention,
+    ),
+    row("leadershipFillPct", dates.map(() => null), leadership.fillPct, "pct", "Leadership Input"),
     row(
       "groupsPct",
       dates.map(() => null),
@@ -2872,16 +2909,6 @@ function buildHealthReport(selectedMonth = selectedHealthMonth(), campusesOverri
       const summary = heartSoulSummary(campuses, month, roleName);
       return row(key, dates.map(() => null), summary.pct, "pct", "Heart Soul Input");
     }),
-    row("leadershipFillPct", dates.map(() => null), leadership.fillPct, "pct", "Leadership Input"),
-    row(
-      "leadershipVacancies",
-      dates.map(() => null),
-      leadership.vacancies,
-      "count",
-      "Leadership Input",
-      leadership.vacancies,
-      leadershipVacancyAttention,
-    ),
   ];
 
   return { campuses, month, dates, rows, groupWeeks, leadership };
@@ -3117,7 +3144,110 @@ function healthTakeaways(report) {
   return takeaways;
 }
 
+function healthInsightCard(insight) {
+  return `
+    <article class="insight ${insight.severity || "info"}">
+      <h3 class="insight-title">${escapeHtml(insight.title)}</h3>
+      <p class="insight-body">${escapeHtml(insight.body)}</p>
+    </article>
+  `;
+}
+
+function campusChallengeHighlightGroups(report) {
+  const previousMonth = previousHealthMonth(report.month);
+  const previousReport = previousMonth ? buildHealthReport(previousMonth, report.campuses) : null;
+  const previousRows = healthRowMap(previousReport);
+  const gradedRows = report.rows.filter((row) => isFiniteNumber(row.status.grade));
+  const challenges = gradedRows
+    .filter((row) => row.status.grade > 1)
+    .sort((a, b) => b.status.grade - a.status.grade)
+    .slice(0, 4)
+    .map((row) => ({
+      key: row.key,
+      title: row.label,
+      body: `${formatHealthValueForInsight(row)} against ${row.optimal}. Attention grade ${row.status.grade}: ${row.status.label}.`,
+      severity: healthInsightSeverity(row.status.tone),
+    }));
+
+  if (!challenges.length) {
+    challenges.push({
+      key: "none",
+      title: "No major challenges surfaced",
+      body: "The graded metrics currently shown are on track for this campus.",
+      severity: "info",
+    });
+  }
+
+  const highlightMap = new Map();
+  for (const row of gradedRows) {
+    const previous = previousRows.get(row.key);
+    if (previous && isFiniteNumber(previous.status.grade) && row.status.grade < previous.status.grade) {
+      highlightMap.set(row.key, {
+        title: `${row.label} improved`,
+        body: `Attention grade moved from ${previous.status.grade} to ${row.status.grade}. Current value: ${formatHealthValueForInsight(row)}.`,
+        severity: "info",
+      });
+    }
+  }
+
+  for (const row of gradedRows.filter((item) => item.status.grade <= 1)) {
+    if (highlightMap.size >= 4) break;
+    if (!highlightMap.has(row.key)) {
+      highlightMap.set(row.key, {
+        title: `${row.label} is on track`,
+        body: `${formatHealthValueForInsight(row)} against ${row.optimal}.`,
+        severity: "info",
+      });
+    }
+  }
+
+  const highlights = Array.from(highlightMap.values()).slice(0, 4);
+  if (!highlights.length) {
+    highlights.push({
+      title: "No clear highlight yet",
+      body: "Highlights will appear when a metric improves or lands on track.",
+      severity: "info",
+    });
+  }
+
+  return { challenges, highlights };
+}
+
 function renderHealthInsights(report) {
+  els.healthInsights.classList.toggle("campus-health-insights", state.campus !== "All Campuses");
+  if (els.healthInsightsKicker && els.healthInsightsTitle) {
+    els.healthInsightsKicker.textContent = state.campus === "All Campuses" ? "Monthly Takeaways" : "Campus Health";
+    els.healthInsightsTitle.textContent =
+      state.campus === "All Campuses" ? "Health Readout" : "Major Challenges & Highlights";
+  }
+
+  if (state.campus !== "All Campuses" && report.month) {
+    const groups = campusChallengeHighlightGroups(report);
+    els.healthInsights.innerHTML = `
+      <div class="campus-health-insight-columns">
+        <section class="campus-health-insight-column">
+          <div class="campus-health-insight-heading">
+            <span class="panel-kicker">Focus</span>
+            <strong>Major Challenges</strong>
+          </div>
+          <div class="campus-health-insight-list">
+            ${groups.challenges.map(healthInsightCard).join("")}
+          </div>
+        </section>
+        <section class="campus-health-insight-column">
+          <div class="campus-health-insight-heading">
+            <span class="panel-kicker">Strength</span>
+            <strong>Highlights</strong>
+          </div>
+          <div class="campus-health-insight-list">
+            ${groups.highlights.map(healthInsightCard).join("")}
+          </div>
+        </section>
+      </div>
+    `;
+    return;
+  }
+
   const takeaways = healthTakeaways(report);
   if (!takeaways.length) {
     els.healthInsights.innerHTML = `
@@ -3129,14 +3259,7 @@ function renderHealthInsights(report) {
     return;
   }
   els.healthInsights.innerHTML = takeaways
-    .map(
-      (insight) => `
-        <article class="insight ${insight.severity || "info"}">
-          <h3 class="insight-title">${insight.title}</h3>
-          <p class="insight-body">${insight.body}</p>
-        </article>
-      `,
-    )
+    .map(healthInsightCard)
     .join("");
 }
 
@@ -3200,8 +3323,8 @@ function formatHealthCell(format, value) {
 }
 
 function renderHealthTable(report) {
-  const headerCell = (label) => `
-    <th>${label}</th>
+  const headerCell = (label, className = "") => `
+    <th${className ? ` class="${className}"` : ""}>${label}</th>
   `;
   const weekHeaders = report.dates.map((date) => headerCell(shortDate(date))).join("");
   const monthSummaryLabel = isCurrentHealthMonth(report.month) ? "Month to Date" : "Month";
@@ -3211,8 +3334,8 @@ function renderHealthTable(report) {
       ${headerCell("Optimal")}
       ${weekHeaders}
       ${headerCell(monthSummaryLabel)}
-      ${headerCell("Grade")}
-      ${headerCell("Status")}
+      ${headerCell("Grade", "grade-header")}
+      ${headerCell("Status", "status-header")}
     </tr>
   `;
 
@@ -3241,6 +3364,56 @@ function renderHealthTable(report) {
     .join("");
 }
 
+function dirCoordVacancyRowsFor(campus, roleLevel, month) {
+  return (data.health?.dirCoordVacancies || [])
+    .filter((row) => {
+      const roleMatch = String(row.roleLevel || "").toLowerCase() === roleLevel.toLowerCase();
+      const campusMatch = normalizeText(row.campus) === normalizeText(campus);
+      const monthMatch = !row.month || !month || row.month === month;
+      return roleMatch && campusMatch && monthMatch;
+    })
+    .sort(
+      (a, b) =>
+        String(a.ministry || "").localeCompare(String(b.ministry || "")) ||
+        String(a.teamArea || "").localeCompare(String(b.teamArea || "")),
+    );
+}
+
+function renderDirCoordVacancyDetails(report) {
+  if (state.campus === "All Campuses") return "";
+  const sections = ["Director", "Coordinator"].map((roleLevel) => {
+    const rows = dirCoordVacancyRowsFor(state.campus, roleLevel, report.month);
+    return `
+      <section class="dir-coord-vacancy-section">
+        <h3>${roleLevel} Vacancies</h3>
+        ${
+          rows.length
+            ? `
+              <div class="dir-coord-vacancy-list">
+                ${rows
+                  .map(
+                    (row) => `
+                      <div class="dir-coord-vacancy-item">
+                        <span>${escapeHtml(row.ministry || "No ministry listed")}</span>
+                        <span class="dir-coord-dot">·</span>
+                        <span>${escapeHtml(row.teamArea || "No team/area listed")}</span>
+                        <span class="dir-coord-dot">·</span>
+                        <strong>${formatNumber(row.filledCount)}/${formatNumber(row.neededCount)}</strong>
+                      </div>
+                    `,
+                  )
+                  .join("")}
+              </div>
+            `
+            : `<p>No ${roleLevel.toLowerCase()} vacancies listed for this campus.</p>`
+        }
+      </section>
+    `;
+  });
+
+  return `<div class="dir-coord-vacancy-detail">${sections.join("")}</div>`;
+}
+
 function renderLeadershipVacancyChart(report) {
   const rows = report.leadership.roles.map((role) => ({
     label: role.role,
@@ -3257,30 +3430,34 @@ function renderLeadershipVacancyChart(report) {
   if (!hasData) {
     els.leadershipVacancyChart.innerHTML = `
       <div class="empty">Leadership target and filled counts will appear here.</div>
+      ${renderDirCoordVacancyDetails(report)}
     `;
     return;
   }
 
   const max = Math.max(...rows.map((row) => row.value || 0), 1);
-  els.leadershipVacancyChart.innerHTML = rows
-    .map((row) => {
-      const width = row.value ? Math.max(6, (row.value / max) * 100) : 0;
-      return `
-        <div class="leadership-row">
-          <div>
-            <div class="leadership-role">${row.label}</div>
-            <div class="leadership-subtext">
-              ${formatNumber(row.filled)} filled of ${formatNumber(row.target)} needed
+  els.leadershipVacancyChart.innerHTML = `
+    ${rows
+      .map((row) => {
+        const width = row.value ? Math.max(6, (row.value / max) * 100) : 0;
+        return `
+          <div class="leadership-row">
+            <div>
+              <div class="leadership-role">${row.label}</div>
+              <div class="leadership-subtext">
+                ${formatNumber(row.filled)} filled of ${formatNumber(row.target)} needed
+              </div>
             </div>
+            <div class="bar-track">
+              <div class="bar-fill vacancy-fill" style="width:${width}%"></div>
+            </div>
+            <div class="leadership-value">${formatNumber(row.value)}</div>
           </div>
-          <div class="bar-track">
-            <div class="bar-fill vacancy-fill" style="width:${width}%"></div>
-          </div>
-          <div class="leadership-value">${formatNumber(row.value)}</div>
-        </div>
-      `;
-    })
-    .join("");
+        `;
+      })
+      .join("")}
+    ${renderDirCoordVacancyDetails(report)}
+  `;
 }
 
 function renderCampusVacancySnapshot(report) {
@@ -3346,6 +3523,7 @@ function renderCampusVacancySnapshot(report) {
 function renderHealth() {
   syncHealthMonthOptions();
   const report = buildHealthReport();
+  renderHealthPrintHeader(report);
   els.healthMonthMeta.textContent = report.month
     ? `${state.campus}`
     : "Current month";
@@ -3357,6 +3535,26 @@ function renderHealth() {
   renderHealthTable(report);
   renderLeadershipVacancyChart(report);
   renderCampusVacancySnapshot(report);
+}
+
+function renderHealthPrintHeader(report) {
+  if (!els.healthPrintTitle || !els.healthPrintMeta) return;
+  const campusLabel = state.campus === "All Campuses" ? "All Campuses" : state.campus;
+  const monthLabel = report.month ? healthMonthDisplay(report.month) : "Current month";
+  const workbookLabel = els.sourceName?.textContent?.trim() || "Campus dashboard";
+  els.healthPrintTitle.textContent = `${campusLabel} Health Report`;
+  els.healthPrintMeta.textContent = `${monthLabel} · ${workbookLabel}`;
+}
+
+function printHealthReport() {
+  if (!isHealthReportSelected()) return;
+  document.body.classList.add("print-health-report");
+  window.setTimeout(() => {
+    window.print();
+    window.setTimeout(() => {
+      document.body.classList.remove("print-health-report");
+    }, 250);
+  }, 50);
 }
 
 function growthHistoryRows() {

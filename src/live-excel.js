@@ -187,6 +187,10 @@ async function readWorkbookData(token, driveItem) {
     ["Leadership Input", "Leadership Health Input", "Leadership Health"],
     "A1:I700",
   );
+  sheets["Dir-Coord Vacancies"] = await tryReadFirstRange(
+    ["Dir-Coord Vacancies", "Dir Coord Vacancies", "Director Coordinator Vacancies"],
+    "A1:Z1200",
+  );
 
   return buildDashboardData(sheets, driveItem);
 }
@@ -295,7 +299,7 @@ function buildDashboardData(sheets, driveItem) {
   );
   const dreamTeamDetail = extractDreamTeamDetail(sheets["Sunday - DT Detail"], latestDate, campuses);
   const campusGrowthHistory = extractCampusGrowthHistory(sheets["Campus Growth History"]);
-  const health = extractHealthData(sheets, metrics, latestDate);
+  const health = extractHealthData(sheets, metrics, latestDate, campuses);
 
   return {
     source: {
@@ -769,7 +773,7 @@ function extract2025Yoy(range, campuses, latestDate) {
   };
 }
 
-function extractHealthData(sheets, metrics, latestDate) {
+function extractHealthData(sheets, metrics, latestDate, campuses = []) {
   const groupConfig = extractGroupConfig(sheets["Group Semester Config"]);
   const groupAttendance = extractGroupAttendance(
     sheets["Group Health Input"],
@@ -777,6 +781,7 @@ function extractHealthData(sheets, metrics, latestDate) {
   );
   const heartSoulRows = extractHeartSoulRows(sheets["Heart Soul Input"]);
   const leadershipRows = extractLeadershipRows(sheets["Leadership Input"]);
+  const dirCoordVacancies = extractDirCoordVacancies(sheets["Dir-Coord Vacancies"], campuses);
   const activeDreamTeam = extractActiveDreamTeam(sheets["Active Dream Team"], latestDate);
   const targets = extractHealthTargets(sheets["Health Targets"]);
 
@@ -786,6 +791,7 @@ function extractHealthData(sheets, metrics, latestDate) {
     groupAttendance,
     heartSoulRows,
     leadershipRows,
+    dirCoordVacancies,
     activeDreamTeam,
     months: extractHealthMonths(metrics, groupConfig, groupAttendance, heartSoulRows, leadershipRows, activeDreamTeam),
   };
@@ -1534,6 +1540,39 @@ function extractLeadershipRows(range) {
       };
     })
     .filter((row) => row.month && row.campus && row.role);
+}
+
+function canonicalDirCoordRole(value) {
+  const normalized = normalizeCompact(value);
+  if (!normalized) return null;
+  if (normalized.includes("director") || normalized === "dir") return "Director";
+  if (normalized.includes("coordinator") || normalized.includes("coord")) return "Coordinator";
+  return cleanText(value);
+}
+
+function extractDirCoordVacancies(range, campuses = []) {
+  return tableRows(range, ["role_level", "campus"])
+    .map((row) => {
+      const roleLevel = canonicalDirCoordRole(rowText(row, ["role_level", "role", "level"]));
+      const filledCount = rowNumber(row, ["filled_count", "filled", "current_count", "current"]);
+      const neededCount = rowNumber(row, ["needed_count", "needed", "target_count", "target"]);
+      const enteredVacancyCount = rowNumber(row, ["vacancy_count", "vacancies", "open_count", "open"]);
+      const vacancyCount =
+        enteredVacancyCount ?? (neededCount !== null && filledCount !== null
+          ? Math.max(0, neededCount - filledCount)
+          : null);
+      return {
+        month: rowMonth(row, ["month"]),
+        roleLevel,
+        campus: canonicalCampusName(rowText(row, ["campus"]), campuses),
+        ministry: rowText(row, ["ministry"]),
+        teamArea: rowText(row, ["team_area", "team", "area", "team_or_area"]),
+        filledCount,
+        neededCount,
+        vacancyCount,
+      };
+    })
+    .filter((row) => row.campus && row.roleLevel);
 }
 
 function monthsBetween(startIso, endIso) {
