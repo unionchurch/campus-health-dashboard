@@ -45,6 +45,8 @@ const DISPLAY_NAMES = {
   dreamTeam: "Dream Team",
 };
 
+const SHEET_TOTAL_METRIC_KEYS = new Set(["salvations", "firstTimers"]);
+
 let msalClient;
 let activeAccount;
 
@@ -142,9 +144,26 @@ async function readWorkbookData(token, driveItem) {
   const worksheetNames = await listWorkbookSheetNames(token, driveId, itemId, sessionId);
   const readRange = (sheetName, address) =>
     getWorkbookRange(token, driveId, itemId, resolveWorksheetName(sheetName, worksheetNames) || sheetName, address, sessionId);
+  const exactWorksheetName = (sheetName) => {
+    const requested = cleanText(sheetName)?.toLowerCase();
+    return worksheetNames.find((name) => cleanText(name)?.toLowerCase() === requested) || null;
+  };
+  const readExactRange = (sheetName, address) => {
+    const exactName = exactWorksheetName(sheetName);
+    if (!exactName) throw new Error(`Worksheet not found: ${sheetName}`);
+    return getWorkbookRange(token, driveId, itemId, exactName, address, sessionId);
+  };
   const tryReadRange = async (sheetName, address) => {
     try {
       return await readRange(sheetName, address);
+    } catch (error) {
+      console.warn(`Optional sheet not loaded: ${sheetName}`, error);
+      return null;
+    }
+  };
+  const tryReadExactRange = async (sheetName, address) => {
+    try {
+      return await readExactRange(sheetName, address);
     } catch (error) {
       console.warn(`Optional sheet not loaded: ${sheetName}`, error);
       return null;
@@ -177,11 +196,7 @@ async function readWorkbookData(token, driveItem) {
     ["Groups Goals", "Group Goals", "Group Semester Config", "Group Configure", "Groups Configure"],
     "A1:Z1200",
   );
-  sheets["Group Health Input"] = await tryReadRange("Group Health Input", "A1:L1200");
-  sheets["Group Attendance"] = await tryReadFirstRange(
-    ["Group Attendance", "Groups Attendance", "Group Attendance Input", "Groups Health Input"],
-    "A1:BW120",
-  );
+  sheets.Groups = await tryReadExactRange("Groups", "A1:BW1200");
   sheets["Heart Soul Input"] = await tryReadFirstRange(
     ["Heart Soul Input", "Heart & Soul Input", "Heart and Soul Input"],
     "A1:J700",
@@ -314,7 +329,7 @@ function buildDashboardData(sheets, driveItem) {
     metrics: Object.fromEntries(
       Object.entries(metrics).map(([key, payload]) => [
         key,
-        { label: DISPLAY_NAMES[key], series: payload.series },
+        { label: DISPLAY_NAMES[key], series: payload.series, totalSeries: payload.totalSeries || [] },
       ]),
     ),
     history: {
@@ -526,35 +541,39 @@ function extractMetricSheet(range, { metricKey = null } = {}) {
   }
 
   const series = {};
+  let totalSeries = [];
   for (let row = 2; row < values.length; row += 1) {
     const campus = cleanText(text[row]?.[0] || values[row]?.[0]);
     if (!campus) continue;
     const lower = campus.toLowerCase();
-    if (
-      lower.startsWith("total") ||
-      lower.startsWith("% swing") ||
-      lower.startsWith("monthly") ||
-      lower.startsWith("quarter")
-    ) {
+    if (lower.startsWith("total")) {
+      totalSeries = metricPointsFromRow(values, text, row, headers);
+      break;
+    }
+    if (lower.startsWith("% swing") || lower.startsWith("monthly") || lower.startsWith("quarter")) {
       break;
     }
 
-    series[campus] = headers
-      .map((header) => {
-        const value = asNumber(values[row]?.[header.col], text[row]?.[header.col]);
-        if (value === null) return null;
-        return {
-          date: header.date,
-          value: normalizeValue(value),
-          event: header.event,
-          eventType: header.eventType,
-          isSunday: header.isSunday,
-        };
-      })
-      .filter(Boolean);
+    series[campus] = metricPointsFromRow(values, text, row, headers);
   }
 
-  return { headers, series };
+  return { headers, series, totalSeries };
+}
+
+function metricPointsFromRow(values, text, row, headers) {
+  return headers
+    .map((header) => {
+      const value = asNumber(values[row]?.[header.col], text[row]?.[header.col]);
+      if (value === null) return null;
+      return {
+        date: header.date,
+        value: normalizeValue(value),
+        event: header.event,
+        eventType: header.eventType,
+        isSunday: header.isSunday,
+      };
+    })
+    .filter(Boolean);
 }
 
 function extractBaptismSheet(range, campuses = [], defaultYear = new Date().getFullYear()) {
@@ -596,29 +615,22 @@ function extractBaptismSheet(range, campuses = [], defaultYear = new Date().getF
   if (!headers.length) return fallback();
 
   const series = {};
+  let totalSeries = [];
   for (let row = weeklyRow + 1; row < values.length; row += 1) {
     const rawCampus = cleanText(text[row]?.[0] || values[row]?.[0]);
     if (!rawCampus) continue;
     const lower = rawCampus.toLowerCase();
-    if (lower.startsWith("total") || lower.startsWith("monthly") || lower.startsWith("quarter")) break;
+    if (lower.startsWith("total")) {
+      totalSeries = metricPointsFromRow(values, text, row, headers);
+      break;
+    }
+    if (lower.startsWith("monthly") || lower.startsWith("quarter")) break;
     const campus = canonicalCampusName(rawCampus, campuses);
 
-    series[campus] = headers
-      .map((header) => {
-        const value = asNumber(values[row]?.[header.col], text[row]?.[header.col]);
-        if (value === null) return null;
-        return {
-          date: header.date,
-          value: normalizeValue(value),
-          event: header.event,
-          eventType: header.eventType,
-          isSunday: header.isSunday,
-        };
-      })
-      .filter(Boolean);
+    series[campus] = metricPointsFromRow(values, text, row, headers);
   }
 
-  return { headers, series };
+  return { headers, series, totalSeries };
 }
 
 function latestCommonDate(seriesByCampus) {
@@ -734,7 +746,14 @@ function totalSeries(attendanceSeries) {
 function latestMetricSnapshots(metrics, latestDate) {
   return Object.entries(metrics).map(([key, payload]) => {
     const byCampus = valuesOnDate(payload.series, latestDate);
-    const total = Object.values(byCampus).reduce((sum, value) => sum + value, 0);
+    const totalPoint = (payload.totalSeries || []).find((point) => point.date === latestDate);
+    const total =
+      SHEET_TOTAL_METRIC_KEYS.has(key) &&
+      totalPoint &&
+      typeof totalPoint.value === "number" &&
+      Number.isFinite(totalPoint.value)
+        ? totalPoint.value
+        : Object.values(byCampus).reduce((sum, value) => sum + value, 0);
     return {
       key,
       label: DISPLAY_NAMES[key],
@@ -779,8 +798,8 @@ function extract2025Yoy(range, campuses, latestDate) {
 function extractHealthData(sheets, metrics, latestDate, campuses = []) {
   const groupConfig = extractGroupConfig(sheets["Group Semester Config"]);
   const groupAttendance = extractGroupAttendance(
-    sheets["Group Health Input"],
-    sheets["Group Attendance"],
+    sheets.Groups,
+    sheets.Groups,
   );
   const heartSoulRows = extractHeartSoulRows(sheets["Heart Soul Input"]);
   const leadershipRows = extractLeadershipRows(sheets["Leadership Input"]);

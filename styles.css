@@ -857,7 +857,7 @@ figcaption,
 }
 
 .health-report-table {
-  min-width: 1080px;
+  min-width: 1240px;
   border-collapse: collapse;
   border: 2px solid var(--line);
   background: var(--surface);

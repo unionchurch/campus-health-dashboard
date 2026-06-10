@@ -1,5 +1,5 @@
-import dashboardData from "./dashboard-data.js?v=20260609-group-baseline";
-import { setupLiveExcel } from "./live-excel.js?v=20260609-group-baseline";
+import dashboardData from "./dashboard-data.js?v=20260610-salvation-firsttimers-total";
+import { setupLiveExcel } from "./live-excel.js?v=20260610-salvation-firsttimers-total";
 
 let data = dashboardData;
 
@@ -28,6 +28,8 @@ const metricOrder = [
 
 let metricLabels = getMetricLabels();
 
+const sheetTotalMetricKeys = new Set(["salvations", "firstTimers"]);
+
 const healthTargetDefaults = {
   attendance: { label: "Attendance", unit: "count" },
   attendanceYoy: {
@@ -39,24 +41,28 @@ const healthTargetDefaults = {
   },
   kidsCount: { label: "Kids", unit: "count" },
   kidsPct: { label: "Kids % of Attendance", unit: "%", optimalMin: 13, direction: "higher" },
+  growthTrackCount: { label: "Growth Track", unit: "count" },
   growthTrackPct: {
-    label: "Growth Track %",
+    label: "Growth Track % of Attendance",
     unit: "%",
     optimalMin: 2,
     optimalMax: 4,
     direction: "range",
   },
-  baptismPct: { label: "Baptisms %", unit: "%", optimalMin: 15, direction: "higher" },
-  salvationsPct: { label: "Salvations %", unit: "%", optimalMin: 10, direction: "higher" },
+  baptismCount: { label: "Baptisms", unit: "count" },
+  baptismPct: { label: "Baptisms % of Attendance", unit: "%", optimalMin: 15, direction: "higher" },
+  salvationsCount: { label: "Salvations", unit: "count" },
+  salvationsPct: { label: "Salvations % of Attendance", unit: "%", optimalMin: 10, direction: "higher" },
+  firstTimersCount: { label: "First Time Guests", unit: "count" },
   firstTimersPct: {
-    label: "First Time Guests %",
+    label: "First Time Guests % of Attendance",
     unit: "%",
     optimalMin: 2,
     optimalMax: 4,
     direction: "range",
   },
   dreamTeamPct: {
-    label: "Active Dream Team %",
+    label: "Active Dream Team % of Attendance",
     unit: "%",
     optimalMin: 33,
     direction: "higher",
@@ -64,15 +70,18 @@ const healthTargetDefaults = {
   dreamTeamServing: { label: "Dream Team Serving", unit: "count" },
   activeDreamTeamCount: { label: "Active Dream Team", unit: "count" },
   groupsPct: {
-    label: "Total Groups %",
+    label: "Total Groups % of Attendance",
     unit: "%",
     optimalMin: 8,
     optimalMax: 10,
     direction: "range",
   },
   groupGoalPct: { label: "Group Goal Hit", unit: "%", optimalMin: 100, direction: "higher" },
+  groupActualGoal: { label: "Groups Actual / Goal", unit: "actualGoal" },
+  groupMembersCount: { label: "Group Members", unit: "count" },
   groupMembersPct: { label: "Group Members % of Attendance", unit: "%", optimalMin: 100, direction: "higher" },
-  groupAttendancePct: { label: "Group Attendance / Signups", unit: "%" },
+  groupAttendanceCount: { label: "Group Attendance", unit: "count" },
+  groupAttendancePct: { label: "Group Attendance % of Group Members", unit: "%" },
   heartSoulDirectorPct: { label: "Heart & Soul Directors", unit: "%", optimalMin: 100, direction: "higher" },
   heartSoulCoordinatorPct: {
     label: "Heart & Soul Coordinators",
@@ -88,12 +97,32 @@ const healthTargetDefaults = {
 const healthOptimalLabels = {
   attendance: "Avg",
   kidsCount: "Count",
+  growthTrackCount: "Count",
+  baptismCount: "Count",
+  salvationsCount: "Count",
+  firstTimersCount: "Count",
   dreamTeamServing: "Count",
   activeDreamTeamCount: "Count",
+  groupActualGoal: "Actual / Goal",
+  groupMembersCount: "Count",
+  groupAttendanceCount: "Count",
   groupGoalPct: ">=100%",
   groupAttendancePct: "Higher",
-  heartSoulTeamLeadPct: "If included",
+  heartSoulDirectorPct: "Attended / Invited",
+  heartSoulCoordinatorPct: "Attended / Invited",
+  heartSoulTeamLeadPct: "Attended / Invited",
   leadershipVacancies: "0",
+};
+
+const healthDisplayLabels = {
+  growthTrackPct: "Growth Track % of Attendance",
+  baptismPct: "Baptisms % of Attendance",
+  salvationsPct: "Salvations % of Attendance",
+  firstTimersPct: "First Time Guests % of Attendance",
+  dreamTeamPct: "Active Dream Team % of Attendance",
+  groupsPct: "Total Groups % of Attendance",
+  groupMembersPct: "Group Members % of Attendance",
+  groupAttendancePct: "Group Attendance % of Group Members",
 };
 
 const healthTargetAliases = {
@@ -676,6 +705,12 @@ function getMetricPoints(metricKey, campus) {
 
   if (campus !== "All Campuses") {
     return (metric.series[campus] || [])
+      .filter((point) => point.isSunday && point.value > 0)
+      .filter((point) => state.showEvents || point.eventType === "normal");
+  }
+
+  if (usesSheetTotal(metricKey) && metric.totalSeries?.length) {
+    return metric.totalSeries
       .filter((point) => point.isSunday && point.value > 0)
       .filter((point) => state.showEvents || point.eventType === "normal");
   }
@@ -2356,7 +2391,15 @@ function clampNumber(value, min, max) {
 }
 
 function metricValueOnDate(metricKey, campuses, date) {
-  const series = data.metrics[metricKey]?.series || {};
+  const metric = data.metrics[metricKey] || {};
+  if (usesSheetTotal(metricKey) && isAllCampusScope(campuses) && metric.totalSeries?.length) {
+    const totalPoint = metric.totalSeries.find((item) => item.date === date);
+    if (totalPoint && typeof totalPoint.value === "number" && Number.isFinite(totalPoint.value)) {
+      return totalPoint.value;
+    }
+  }
+
+  const series = metric.series || {};
   let total = 0;
   let found = false;
   for (const campus of campuses) {
@@ -2367,6 +2410,16 @@ function metricValueOnDate(metricKey, campuses, date) {
     }
   }
   return found ? total : null;
+}
+
+function usesSheetTotal(metricKey) {
+  return sheetTotalMetricKeys.has(metricKey);
+}
+
+function isAllCampusScope(campuses) {
+  if (!Array.isArray(campuses) || campuses.length !== data.campuses.length) return false;
+  const scope = new Set(campuses);
+  return data.campuses.every((campus) => scope.has(campus));
 }
 
 function attendanceDatesForMonth(campuses, month) {
@@ -2433,6 +2486,16 @@ function weeklyPercentOfAttendance(metricKey, date, campuses) {
 
 function monthlyPercentOfAttendance(metricKey, dates, campuses) {
   return averageNumbers(dates.map((date) => weeklyPercentOfAttendance(metricKey, date, campuses)));
+}
+
+function metricTotalForDates(metricKey, dates, campuses) {
+  return sumNumbers(dates.map((date) => metricValueOnDate(metricKey, campuses, date)));
+}
+
+function monthlyPercentOfAttendanceByTotals(metricKey, dates, campuses) {
+  const attendanceTotal = metricTotalForDates("attendance", dates, campuses);
+  const numeratorTotal = metricTotalForDates(metricKey, dates, campuses);
+  return attendanceTotal && numeratorTotal !== null ? (numeratorTotal / attendanceTotal) * 100 : null;
 }
 
 function normalizeHealthTarget(target, conversionSource = target, targetKey = null) {
@@ -2561,6 +2624,10 @@ function healthStatus(key, value) {
     return { label: grade <= 2 ? "Above Target" : "Review", tone: grade <= 2 ? "neutral" : "watch", grade };
   }
   return { label: "On Track", tone: "positive", grade: 1 };
+}
+
+function notGradedStatus() {
+  return { label: "Not Graded", tone: "not-graded", grade: null };
 }
 
 function configCoversMonth(row, month) {
@@ -2862,6 +2929,14 @@ function buildHealthReport(selectedMonth = selectedHealthMonth(), campusesOverri
   const attendanceAvg = averageNumbers(attendanceValues);
   const kidsValues = dates.map((date) => metricValueOnDate("kids", campuses, date));
   const kidsAvg = averageNumbers(kidsValues);
+  const growthTrackValues = dates.map((date) => metricValueOnDate("growthTrack", campuses, date));
+  const growthTrackAvg = averageNumbers(growthTrackValues);
+  const baptismValues = dates.map((date) => metricValueOnDate("baptism", campuses, date));
+  const baptismAvg = averageNumbers(baptismValues);
+  const salvationValues = dates.map((date) => metricValueOnDate("salvations", campuses, date));
+  const salvationAvg = averageNumbers(salvationValues);
+  const firstTimerValues = dates.map((date) => metricValueOnDate("firstTimers", campuses, date));
+  const firstTimerAvg = averageNumbers(firstTimerValues);
   const dreamTeamServingValues = dates.map((date) => metricValueOnDate("dreamTeam", campuses, date));
   const dreamTeamServingAvg = averageNumbers(dreamTeamServingValues);
   const attendanceYoyValues = dates.map((date) => {
@@ -2870,23 +2945,56 @@ function buildHealthReport(selectedMonth = selectedHealthMonth(), campusesOverri
     return pctChange(current, prior);
   });
   const attendanceYoy = averageNumbers(attendanceYoyValues);
+  const attendanceYoyPriorValues = dates.map((date) => nearestPriorAttendance(date, campuses)?.value ?? null);
+  const attendanceYoyTotal = pctChange(sumNumbers(attendanceValues), sumNumbers(attendanceYoyPriorValues));
   const config = groupConfigFor(campuses, month);
   const groupAttendanceDenominator = config?.baselineAttendance ?? null;
+  const groupStatusOverride = config ? null : notGradedStatus();
   const activeDreamTeam = activeDreamTeamForMonth(campuses, month, attendanceAvg);
   const groupWeeks = groupAttendanceByWeek(campuses, month);
   const leadership = leadershipSummary(campuses, month);
   const leadershipVacancyAttention = leadershipVacancyStatus(campuses, month, attendanceAvg, leadership);
 
-  const row = (key, weeklyValues, monthValue, format, source, statusValue = monthValue, statusOverride = null) => ({
+  const row = (
     key,
-    label: healthTarget(key).label || key,
-    optimal: targetLabel(key),
     weeklyValues,
     monthValue,
     format,
     source,
-    status: statusOverride || healthStatus(key, statusValue),
-  });
+    statusValue = monthValue,
+    statusOverride = null,
+    options = {},
+  ) => {
+    const weeklyTotal = format === "count" ? sumNumbers(weeklyValues) : null;
+    const weeklyAverage = format === "count" ? averageNumbers(weeklyValues) : null;
+    const avgValue = options.avgValue ?? weeklyAverage ?? monthValue;
+    const effectiveStatusValue = statusValue === undefined ? monthValue : statusValue;
+    const defaultTarget = healthTargetDefaults[key] || {};
+    const target = healthTarget(key);
+    const useDefaultLabel = format === "count" || format === "actualGoal";
+    const forceInfoStatus =
+      !statusOverride &&
+      (options.infoOnly || ((format === "count" || format === "actualGoal") && key !== "leadershipVacancies"));
+    return {
+      key,
+      label:
+        options.label ||
+        healthDisplayLabels[key] ||
+        (useDefaultLabel ? defaultTarget.label : target.label) ||
+        defaultTarget.label ||
+        key,
+      optimal: targetLabel(key),
+      weeklyValues,
+      monthValue: avgValue,
+      totalValue: options.totalValue ?? weeklyTotal ?? monthValue,
+      avgValue,
+      format,
+      source,
+      status: forceInfoStatus
+        ? { label: "Info", tone: "neutral", grade: null }
+        : statusOverride || healthStatus(key, effectiveStatusValue),
+    };
+  };
 
   const ratioRow = (key, metricKey, source = "Weekly workbook") =>
     row(
@@ -2895,23 +3003,38 @@ function buildHealthReport(selectedMonth = selectedHealthMonth(), campusesOverri
       monthlyPercentOfAttendance(metricKey, dates, campuses),
       "pct",
       source,
+      monthlyPercentOfAttendance(metricKey, dates, campuses),
+      null,
+      {
+        totalValue: monthlyPercentOfAttendanceByTotals(metricKey, dates, campuses),
+        avgValue: monthlyPercentOfAttendance(metricKey, dates, campuses),
+      },
     );
 
   const groupAttendanceValues = dates.map((date) => {
     const week = groupWeeks.find((item) => item.weekStart === date);
     const attended = week?.attendance ?? null;
-    const signups = config?.groupSignups ?? null;
+    const members = config?.totalGroupMembers ?? null;
     return {
       attended,
-      signups,
-      pct: signups && attended !== null ? (attended / signups) * 100 : null,
+      members,
+      pct: members && attended !== null ? (attended / members) * 100 : null,
     };
   });
   const groupAverage = averageNumbers(groupWeeks.map((week) => week.attendance));
+  const groupAttendanceTotal = sumNumbers(groupWeeks.map((week) => week.attendance));
+  const groupAttendanceCountValues = groupAttendanceValues.map((value) => value.attended);
   const groupMonthValue = {
     attended: groupAverage,
-    signups: config?.groupSignups ?? null,
+    members: config?.totalGroupMembers ?? null,
     pct: averageNumbers(groupAttendanceValues.map((value) => value.pct)),
+  };
+  const groupTotalValue = {
+    attended: groupAttendanceTotal,
+    members: config?.totalGroupMembers ?? null,
+    pct: config?.totalGroupMembers && groupAttendanceTotal !== null
+      ? (groupAttendanceTotal / config.totalGroupMembers) * 100
+      : null,
   };
 
   const heartRoles = [
@@ -2928,12 +3051,22 @@ function buildHealthReport(selectedMonth = selectedHealthMonth(), campusesOverri
       attendanceYoy,
       "signedPct",
       "Attendance + 2025 sheet",
+      attendanceYoy,
+      null,
+      {
+        totalValue: attendanceYoyTotal,
+        avgValue: attendanceYoy,
+      },
     ),
     row("kidsCount", kidsValues, kidsAvg, "count", "Kids sheet"),
     ratioRow("kidsPct", "kids"),
+    row("growthTrackCount", growthTrackValues, growthTrackAvg, "count", "Growth Track sheet"),
     ratioRow("growthTrackPct", "growthTrack"),
+    row("baptismCount", baptismValues, baptismAvg, "count", "Baptism sheet"),
     ratioRow("baptismPct", "baptism", "Baptism sheet"),
+    row("salvationsCount", salvationValues, salvationAvg, "count", "Salvations sheet"),
     ratioRow("salvationsPct", "salvations"),
+    row("firstTimersCount", firstTimerValues, firstTimerAvg, "count", "First Time Guests sheet"),
     ratioRow("firstTimersPct", "firstTimers"),
     row("dreamTeamServing", dreamTeamServingValues, dreamTeamServingAvg, "count", "Sunday - Dream Team"),
     row("activeDreamTeamCount", dates.map(() => null), activeDreamTeam.total, "count", "Active Dream Team"),
@@ -2949,13 +3082,13 @@ function buildHealthReport(selectedMonth = selectedHealthMonth(), campusesOverri
     ),
     row("leadershipFillPct", dates.map(() => null), leadership.fillPct, "pct", "Leadership Input"),
     row(
-      "groupsPct",
+      "groupActualGoal",
       dates.map(() => null),
-      config?.activeGroups !== null && config?.activeGroups !== undefined && groupAttendanceDenominator
-        ? (config.activeGroups / groupAttendanceDenominator) * 100
-        : null,
-      "pct",
+      { actual: config?.activeGroups ?? null, goal: config?.groupGoal ?? null },
+      "actualGoal",
       "Groups Goals",
+      null,
+      groupStatusOverride,
     ),
     row(
       "groupGoalPct",
@@ -2965,6 +3098,28 @@ function buildHealthReport(selectedMonth = selectedHealthMonth(), campusesOverri
         : null,
       "pct",
       "Groups Goals",
+      undefined,
+      groupStatusOverride,
+    ),
+    row(
+      "groupsPct",
+      dates.map(() => null),
+      config?.activeGroups !== null && config?.activeGroups !== undefined && groupAttendanceDenominator
+        ? (config.activeGroups / groupAttendanceDenominator) * 100
+        : null,
+      "pct",
+      "Groups Goals",
+      undefined,
+      groupStatusOverride,
+    ),
+    row(
+      "groupMembersCount",
+      dates.map(() => null),
+      config?.totalGroupMembers ?? null,
+      "count",
+      "Groups Goals",
+      undefined,
+      groupStatusOverride,
     ),
     row(
       "groupMembersPct",
@@ -2974,6 +3129,17 @@ function buildHealthReport(selectedMonth = selectedHealthMonth(), campusesOverri
         : null,
       "pct",
       "Groups Goals",
+      undefined,
+      groupStatusOverride,
+    ),
+    row(
+      "groupAttendanceCount",
+      groupAttendanceCountValues,
+      groupAverage,
+      "count",
+      "Group Attendance",
+      undefined,
+      groupStatusOverride,
     ),
     row(
       "groupAttendancePct",
@@ -2982,10 +3148,29 @@ function buildHealthReport(selectedMonth = selectedHealthMonth(), campusesOverri
       "attendanceVsSignups",
       "Group Attendance",
       groupMonthValue.pct,
+      groupStatusOverride,
+      {
+        label: "Group Attendance % of Group Members",
+        totalValue: groupTotalValue,
+        avgValue: groupMonthValue,
+      },
     ),
     ...heartRoles.map(([key, roleName]) => {
       const summary = heartSoulSummary(campuses, month, roleName);
-      return row(key, dates.map(() => null), summary.pct, "pct", "Heart Soul Input");
+      const attendedInvited = { attended: summary.attended, invited: summary.denominator };
+      return row(
+        key,
+        dates.map(() => null),
+        attendedInvited,
+        "attendedInvited",
+        "Heart Soul Input",
+        summary.pct,
+        null,
+        {
+          totalValue: attendedInvited,
+          avgValue: attendedInvited,
+        },
+      );
     }),
   ];
 
@@ -3234,18 +3419,30 @@ function healthInsightCard(insight) {
 function campusChallengeHighlightGroups(report) {
   const previousMonth = previousHealthMonth(report.month);
   const previousReport = previousMonth ? buildHealthReport(previousMonth, report.campuses) : null;
+  const rowMap = healthRowMap(report);
   const previousRows = healthRowMap(previousReport);
   const gradedRows = report.rows.filter((row) => isFiniteNumber(row.status.grade));
+  const leadershipKeys = ["leadershipVacancies", "leadershipFillPct"];
+  const challengeCard = (row) => ({
+    key: row.key,
+    title: row.label,
+    body: `${formatHealthValueForInsight(row)} against ${row.optimal}. Attention grade ${row.status.grade}: ${row.status.label}.`,
+    severity: healthInsightSeverity(row.status.tone),
+  });
   const challenges = gradedRows
     .filter((row) => row.status.grade > 1)
     .sort((a, b) => b.status.grade - a.status.grade)
     .slice(0, 4)
-    .map((row) => ({
-      key: row.key,
-      title: row.label,
-      body: `${formatHealthValueForInsight(row)} against ${row.optimal}. Attention grade ${row.status.grade}: ${row.status.label}.`,
-      severity: healthInsightSeverity(row.status.tone),
-    }));
+    .map(challengeCard);
+
+  for (const row of leadershipKeys.map((key) => rowMap.get(key)).filter(Boolean)) {
+    if (row.status.grade > 1 && !challenges.some((item) => item.key === row.key)) {
+      challenges.push({
+        ...challengeCard(row),
+        title: `${row.label} needs leadership attention`,
+      });
+    }
+  }
 
   if (!challenges.length) {
     challenges.push({
@@ -3263,6 +3460,16 @@ function campusChallengeHighlightGroups(report) {
       highlightMap.set(row.key, {
         title: `${row.label} improved`,
         body: `Attention grade moved from ${previous.status.grade} to ${row.status.grade}. Current value: ${formatHealthValueForInsight(row)}.`,
+        severity: "info",
+      });
+    }
+  }
+
+  for (const row of leadershipKeys.map((key) => rowMap.get(key)).filter(Boolean)) {
+    if (isFiniteNumber(row.status.grade) && row.status.grade <= 1 && !highlightMap.has(row.key)) {
+      highlightMap.set(row.key, {
+        title: `${row.label} is healthy`,
+        body: `${formatHealthValueForInsight(row)} against ${row.optimal}.`,
         severity: "info",
       });
     }
@@ -3394,6 +3601,14 @@ function formatHealthCell(format, value) {
   if (format === "count") return formatNumber(value);
   if (format === "pct") return formatHealthPct(value);
   if (format === "signedPct") return formatSignedHealthPct(value);
+  if (format === "actualGoal") {
+    if (!value || (value.actual === null && value.goal === null)) return "--";
+    return `${formatNumber(value.actual)} / ${formatNumber(value.goal)}`;
+  }
+  if (format === "attendedInvited") {
+    if (!value || (value.attended === null && value.invited === null)) return "--";
+    return `${formatNumber(value.attended)} / ${formatNumber(value.invited)}`;
+  }
   if (format === "attendanceVsSignups") {
     return value?.pct === null || value?.pct === undefined ? "--" : formatHealthPct(value.pct);
   }
@@ -3405,13 +3620,13 @@ function renderHealthTable(report) {
     <th${className ? ` class="${className}"` : ""}>${label}</th>
   `;
   const weekHeaders = report.dates.map((date) => headerCell(shortDate(date))).join("");
-  const monthSummaryLabel = isCurrentHealthMonth(report.month) ? "Month to Date" : "Month";
   els.healthTableHead.innerHTML = `
     <tr>
       ${headerCell("Metric")}
       ${headerCell("Optimal")}
       ${weekHeaders}
-      ${headerCell(monthSummaryLabel)}
+      ${headerCell("Total")}
+      ${headerCell("Avg")}
       ${headerCell("Grade", "grade-header")}
       ${headerCell("Status", "status-header")}
     </tr>
@@ -3420,7 +3635,7 @@ function renderHealthTable(report) {
   if (!report.month) {
     els.healthTableBody.innerHTML = `
       <tr>
-        <td colspan="${report.dates.length + 5}">Connect Excel to load the monthly health report.</td>
+        <td colspan="${report.dates.length + 6}">Connect Excel to load the monthly health report.</td>
       </tr>
     `;
     return;
@@ -3433,7 +3648,8 @@ function renderHealthTable(report) {
           <td>${row.label}</td>
           <td>${row.optimal}</td>
           ${row.weeklyValues.map((value) => `<td>${formatHealthCell(row.format, value)}</td>`).join("")}
-          <td>${formatHealthCell(row.format, row.monthValue)}</td>
+          <td>${formatHealthCell(row.format, row.totalValue)}</td>
+          <td>${formatHealthCell(row.format, row.avgValue)}</td>
           <td class="grade-cell ${row.status.tone}">${row.status.grade ?? "--"}</td>
           <td class="status-cell ${row.status.tone}">${row.status.label}</td>
         </tr>
