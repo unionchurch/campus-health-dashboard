@@ -1,5 +1,5 @@
-import dashboardData from "./dashboard-data.js?v=20260610-salvation-firsttimers-total";
-import { setupLiveExcel } from "./live-excel.js?v=20260610-salvation-firsttimers-total";
+import dashboardData from "./dashboard-data.js?v=20260614-director-name-columns";
+import { setupLiveExcel } from "./live-excel.js?v=20260614-director-name-columns";
 
 let data = dashboardData;
 
@@ -324,7 +324,6 @@ const els = {
   healthPrintButton: document.querySelector("#healthPrintButton"),
   healthPrintTitle: document.querySelector("#healthPrintTitle"),
   healthPrintMeta: document.querySelector("#healthPrintMeta"),
-  healthMonthMeta: document.querySelector("#healthMonthMeta"),
   healthReportMeta: document.querySelector("#healthReportMeta"),
   healthInsightsKicker: document.querySelector("#healthInsightsKicker"),
   healthInsightsTitle: document.querySelector("#healthInsightsTitle"),
@@ -338,6 +337,9 @@ const els = {
   leadershipCampusSnapshotWrap: document.querySelector("#leadershipCampusSnapshotWrap"),
   leadershipCampusMeta: document.querySelector("#leadershipCampusMeta"),
   leadershipCampusSnapshot: document.querySelector("#leadershipCampusSnapshot"),
+  directorRosterWrap: document.querySelector("#directorRosterWrap"),
+  directorRosterMeta: document.querySelector("#directorRosterMeta"),
+  directorRoster: document.querySelector("#directorRoster"),
   growthHistoryMeta: document.querySelector("#growthHistoryMeta"),
   growthHistoryKpis: document.querySelector("#growthHistoryKpis"),
   growthHistoryTrendTitle: document.querySelector("#growthHistoryTrendTitle"),
@@ -3579,7 +3581,7 @@ function renderHealthOverallGrades(report) {
   els.healthOverallMeta.textContent =
     overall.grade === null
       ? "Needs data"
-      : `${state.campus === "All Campuses" ? "All Campuses" : state.campus}: ${overallLabel} · 1 = no attention needed, 10 = critical attention`;
+      : `${state.campus === "All Campuses" ? "All Campuses" : state.campus}: ${overallLabel}`;
 
   if (state.campus === "All Campuses") {
     const rows = campusOverallGradeRows(report.month);
@@ -3814,13 +3816,92 @@ function renderCampusVacancySnapshot(report) {
     .join("");
 }
 
+function directorRosterRowsFor(campuses, month) {
+  return (data.health?.directorRoster || [])
+    .filter((row) => {
+      const campusMatch = campuses.includes(row.campus);
+      const monthMatch = !row.month || !month || row.month === month;
+      return campusMatch && monthMatch && row.name;
+    })
+    .sort(
+      (a, b) =>
+        data.campuses.indexOf(a.campus) - data.campuses.indexOf(b.campus) ||
+        String(a.ministry || "").localeCompare(String(b.ministry || "")) ||
+        String(a.teamArea || "").localeCompare(String(b.teamArea || "")) ||
+        String(a.name || "").localeCompare(String(b.name || "")),
+    );
+}
+
+function directorRosterArea(row) {
+  return [row.ministry, row.teamArea, row.position, row.staffVolunteer].filter(Boolean).join(" · ") || "Director position";
+}
+
+function renderDirectorRoster(report) {
+  if (!els.directorRosterWrap || !els.directorRoster || !els.directorRosterMeta) return;
+  const showRoster = state.campus !== "All Campuses";
+  els.directorRosterWrap.classList.toggle("is-hidden", !showRoster);
+  if (!showRoster) {
+    els.directorRosterMeta.textContent = "";
+    els.directorRoster.innerHTML = "";
+    return;
+  }
+
+  const campuses = report.campuses?.length ? report.campuses : selectedHealthCampuses();
+  const rows = directorRosterRowsFor(campuses, report.month);
+  const hasAnyRosterData = (data.health?.directorRoster || []).length > 0;
+
+  els.directorRosterMeta.textContent = rows.length
+    ? `${formatNumber(rows.length)} filled directors`
+    : hasAnyRosterData
+      ? "No directors listed for this view"
+      : "Ready for director roster sheet";
+
+  if (!rows.length) {
+    els.directorRoster.innerHTML = `
+      <div class="empty">
+        ${
+          hasAnyRosterData
+            ? "No filled director positions are listed for this campus and month."
+            : "Filled director names will appear here once a Director Roster sheet is added to Excel."
+        }
+      </div>
+    `;
+    return;
+  }
+
+  const grouped = new Map();
+  for (const row of rows) {
+    if (!grouped.has(row.campus)) grouped.set(row.campus, []);
+    grouped.get(row.campus).push(row);
+  }
+
+  els.directorRoster.innerHTML = Array.from(grouped.entries())
+    .map(
+      ([campus, campusRows]) => `
+        <article class="director-roster-card">
+          <h3>${escapeHtml(campus)}</h3>
+          <div class="director-roster-list">
+            ${campusRows
+              .map(
+                (row) => `
+                  <div class="director-roster-item">
+                    <strong>${escapeHtml(row.name)}</strong>
+                    <span>${escapeHtml(directorRosterArea(row))}</span>
+                  </div>
+                `,
+              )
+              .join("")}
+          </div>
+        </article>
+      `,
+    )
+    .join("");
+}
+
 function renderHealth() {
   syncHealthMonthOptions();
   const report = buildHealthReport();
   renderHealthPrintHeader(report);
-  els.healthMonthMeta.textContent = report.month
-    ? `${state.campus}`
-    : "Current month";
   els.healthReportMeta.textContent = report.month
     ? `${healthMonthDisplay(report.month)} · ${state.campus}`
     : "Current month";
@@ -3829,6 +3910,7 @@ function renderHealth() {
   renderHealthTable(report);
   renderLeadershipVacancyChart(report);
   renderCampusVacancySnapshot(report);
+  renderDirectorRoster(report);
 }
 
 function renderHealthPrintHeader(report) {

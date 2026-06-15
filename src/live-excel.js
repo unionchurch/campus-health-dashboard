@@ -209,6 +209,10 @@ async function readWorkbookData(token, driveItem) {
     ["Dir-Coord Vacancies", "Dir Coord Vacancies", "Director Coordinator Vacancies"],
     "A1:Z1200",
   );
+  sheets["Director Roster"] = await tryReadFirstRange(
+    ["Director Roster", "Directors", "Director Names", "Campus Directors", "Filled Directors", "Director Positions"],
+    "A1:Z2000",
+  );
 
   return buildDashboardData(sheets, driveItem);
 }
@@ -804,6 +808,7 @@ function extractHealthData(sheets, metrics, latestDate, campuses = []) {
   const heartSoulRows = extractHeartSoulRows(sheets["Heart Soul Input"]);
   const leadershipRows = extractLeadershipRows(sheets["Leadership Input"]);
   const dirCoordVacancies = extractDirCoordVacancies(sheets["Dir-Coord Vacancies"], campuses);
+  const directorRoster = extractDirectorRoster(sheets["Director Roster"], campuses);
   const activeDreamTeam = extractActiveDreamTeam(sheets["Active Dream Team"], latestDate);
   const targets = extractHealthTargets(sheets["Health Targets"]);
 
@@ -814,8 +819,17 @@ function extractHealthData(sheets, metrics, latestDate, campuses = []) {
     heartSoulRows,
     leadershipRows,
     dirCoordVacancies,
+    directorRoster,
     activeDreamTeam,
-    months: extractHealthMonths(metrics, groupConfig, groupAttendance, heartSoulRows, leadershipRows, activeDreamTeam),
+    months: extractHealthMonths(
+      metrics,
+      groupConfig,
+      groupAttendance,
+      heartSoulRows,
+      leadershipRows,
+      activeDreamTeam,
+      directorRoster,
+    ),
   };
 }
 
@@ -1647,6 +1661,38 @@ function extractDirCoordVacancies(range, campuses = []) {
     .filter((row) => row.campus && row.roleLevel);
 }
 
+function extractDirectorRoster(range, campuses = []) {
+  return tableRows(range, ["campus"])
+    .map((row) => {
+      const roleFieldKey = rowFieldKey(row, ["role_level", "role_type", "level"]);
+      const roleLevel = roleFieldKey ? canonicalDirCoordRole(rowText(row, ["role_level", "role_type", "level"])) : "Director";
+      const firstName = rowText(row, ["first_name", "first"]);
+      const lastName = rowText(row, ["last_name", "last"]);
+      const fullName = [firstName, lastName].filter(Boolean).join(" ");
+      return {
+        month: rowMonth(row, ["month", "report_month", "date"]),
+        roleLevel,
+        campus: canonicalCampusName(rowText(row, ["campus"]), campuses),
+        name: rowText(row, [
+          "director_name",
+          "director",
+          "name",
+          "leader_name",
+          "leader",
+          "person",
+          "person_name",
+          "filled_by",
+          "staff_name",
+        ]) || fullName || null,
+        ministry: rowText(row, ["ministry", "department"]),
+        teamArea: rowText(row, ["team_area", "team", "area", "team_or_area"]),
+        position: rowText(row, ["position", "role_title", "director_role", "role_name", "title"]),
+        staffVolunteer: rowText(row, ["staff_volunteer", "staff_or_volunteer", "type"]),
+      };
+    })
+    .filter((row) => row.campus && row.name && (!row.roleLevel || row.roleLevel === "Director"));
+}
+
 function monthsBetween(startIso, endIso) {
   if (!startIso || !endIso) return [];
   const start = parseIsoDate(`${startIso.slice(0, 7)}-01`);
@@ -1664,7 +1710,15 @@ function monthsBetween(startIso, endIso) {
   return months;
 }
 
-function extractHealthMonths(metrics, groupConfig, groupAttendance, heartSoulRows, leadershipRows, activeDreamTeam) {
+function extractHealthMonths(
+  metrics,
+  groupConfig,
+  groupAttendance,
+  heartSoulRows,
+  leadershipRows,
+  activeDreamTeam,
+  directorRoster = [],
+) {
   const months = new Set();
   for (const points of Object.values(metrics.attendance?.series || {})) {
     for (const point of points) {
@@ -1678,6 +1732,7 @@ function extractHealthMonths(metrics, groupConfig, groupAttendance, heartSoulRow
   for (const row of heartSoulRows) months.add(row.month);
   for (const row of leadershipRows) months.add(row.month);
   for (const row of activeDreamTeam) months.add(row.month);
+  for (const row of directorRoster) months.add(row.month);
   return Array.from(months).filter(Boolean).sort();
 }
 

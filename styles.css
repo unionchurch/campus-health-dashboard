@@ -736,6 +736,7 @@ figcaption,
 
 .health-header-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
   justify-content: flex-end;
   gap: 14px;
@@ -759,6 +760,12 @@ figcaption,
 
 .health-header-actions .panel-meta {
   padding-bottom: 10px;
+}
+
+.health-grade-explanation {
+  flex-basis: 100%;
+  padding-bottom: 0 !important;
+  text-align: right;
 }
 
 .health-month-field {
@@ -1178,6 +1185,10 @@ figcaption,
   padding: 0 18px 18px;
 }
 
+.director-roster-wrap {
+  padding: 0 18px 18px;
+}
+
 .leadership-campus-heading {
   display: flex;
   align-items: center;
@@ -1194,6 +1205,66 @@ figcaption,
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
   gap: 8px;
+}
+
+.director-roster {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 8px;
+}
+
+.director-roster-card {
+  min-width: 0;
+  padding: 10px;
+  background: #ffffff;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+}
+
+.director-roster-card h3 {
+  margin: 0 0 8px;
+  color: var(--ink-soft);
+  font-family: var(--display-font);
+  font-size: 0.9rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.director-roster-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.director-roster-item {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 7px 8px;
+  background: rgba(255, 255, 241, 0.65);
+  border: 1px solid rgba(42, 38, 43, 0.12);
+  border-radius: 6px;
+}
+
+.director-roster-item:first-child {
+  padding-top: 7px;
+  border-top: 1px solid rgba(42, 38, 43, 0.12);
+}
+
+.director-roster-item strong {
+  overflow-wrap: anywhere;
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  font-weight: 850;
+  line-height: 1.2;
+}
+
+.director-roster-item span {
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 650;
+  line-height: 1.25;
 }
 
 .campus-vacancy-card {
@@ -1627,16 +1698,41 @@ tbody tr.active {
   }
 
   body.print-health-report .dir-coord-vacancy-detail,
+  body.print-health-report .director-roster,
   body.print-health-report .campus-health-insight-columns {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
   }
 
   body.print-health-report .dir-coord-vacancy-section,
+  body.print-health-report .director-roster-card,
   body.print-health-report .campus-health-insight-column,
   body.print-health-report .insight {
     border-width: 1px;
     border-radius: 0;
+  }
+
+  body.print-health-report .director-roster-wrap {
+    padding: 0 10px 10px;
+  }
+
+  body.print-health-report .director-roster-card h3,
+  body.print-health-report .director-roster-item strong {
+    font-size: 8pt;
+  }
+
+  body.print-health-report .director-roster-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.print-health-report .director-roster-item {
+    padding: 5px 6px;
+    border-width: 1px;
+    border-radius: 0;
+  }
+
+  body.print-health-report .director-roster-item span {
+    font-size: 7pt;
   }
 
   body.print-health-report .health-insight-grid {
@@ -1737,6 +1833,14 @@ tbody tr.active {
   .health-header-actions .panel-meta {
     padding-bottom: 0;
     text-align: left;
+  }
+
+  .health-grade-explanation {
+    text-align: left;
+  }
+
+  .director-roster-list {
+    grid-template-columns: 1fr;
   }
 
   .chart {

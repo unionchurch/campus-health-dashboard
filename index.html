@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Campus Health Dashboard</title>
-    <link rel="stylesheet" href="./styles.css?v=20260610-salvation-firsttimers-total" />
+    <link rel="stylesheet" href="./styles.css?v=20260614-director-two-columns" />
   </head>
   <body>
     <main class="shell">
@@ -107,11 +107,11 @@
           <h1 id="healthPrintTitle">Monthly Health Report</h1>
           <span id="healthPrintMeta"></span>
         </div>
-        <section class="panel health-overall-panel">
+        <section class="panel health-panel">
           <div class="panel-heading health-heading">
             <div>
-              <span class="panel-kicker">Overall Grade</span>
-              <h2>Campus Health Grade</h2>
+              <span class="panel-kicker">Monthly Health</span>
+              <h2>Campus Health Report</h2>
             </div>
             <div class="health-header-actions">
               <label class="field compact-field health-month-field">
@@ -121,20 +121,11 @@
               <button id="healthPrintButton" class="secondary-action health-print-button" type="button">
                 Export PDF
               </button>
-              <span id="healthMonthMeta" class="panel-meta"></span>
-              <span id="healthOverallMeta" class="panel-meta"></span>
+              <span id="healthReportMeta" class="panel-meta"></span>
+              <span class="panel-meta health-grade-explanation">
+                Attention grade: 1 = no attention needed · 10 = critical attention
+              </span>
             </div>
-          </div>
-          <div id="healthOverallGrid" class="health-overall-grid" aria-label="Campus overall health grades"></div>
-        </section>
-
-        <section class="panel health-panel">
-          <div class="panel-heading health-heading">
-            <div>
-              <span class="panel-kicker">Monthly Health</span>
-              <h2>Campus Health Report</h2>
-            </div>
-            <span id="healthReportMeta" class="panel-meta"></span>
           </div>
           <div class="table-wrap health-table-wrap">
             <table class="health-report-table">
@@ -168,6 +159,17 @@
               aria-label="Leadership vacancies by campus"
             ></div>
           </div>
+          <div id="directorRosterWrap" class="director-roster-wrap">
+            <div class="leadership-campus-heading">
+              <span>Filled director positions</span>
+              <span id="directorRosterMeta"></span>
+            </div>
+            <div
+              id="directorRoster"
+              class="director-roster"
+              aria-label="Filled director positions by campus"
+            ></div>
+          </div>
         </section>
 
         <section class="panel health-takeaways-panel">
@@ -178,6 +180,17 @@
             </div>
           </div>
           <div id="healthInsights" class="insight-list health-insight-grid"></div>
+        </section>
+
+        <section class="panel health-overall-panel">
+          <div class="panel-heading health-heading">
+            <div>
+              <span class="panel-kicker">Overall Grade</span>
+              <h2>Campus Health Grade</h2>
+            </div>
+            <span id="healthOverallMeta" class="panel-meta"></span>
+          </div>
+          <div id="healthOverallGrid" class="health-overall-grid" aria-label="Campus overall health grades"></div>
         </section>
       </section>
 
@@ -298,6 +311,6 @@
       </section>
     </main>
     <script src="https://alcdn.msauth.net/browser/2.38.2/js/msal-browser.min.js"></script>
-    <script type="module" src="./src/app.js?v=20260610-salvation-firsttimers-total"></script>
+    <script type="module" src="./src/app.js?v=20260614-director-name-columns"></script>
   </body>
 </html>
