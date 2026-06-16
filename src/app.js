@@ -1,5 +1,5 @@
-import dashboardData from "./dashboard-data.js?v=20260614-director-name-columns";
-import { setupLiveExcel } from "./live-excel.js?v=20260614-director-name-columns";
+import dashboardData from "./dashboard-data.js?v=20260615-high-percent-on-track";
+import { setupLiveExcel } from "./live-excel.js?v=20260615-high-percent-on-track";
 
 let data = dashboardData;
 
@@ -32,8 +32,9 @@ const sheetTotalMetricKeys = new Set(["salvations", "firstTimers"]);
 
 const healthTargetDefaults = {
   attendance: { label: "Attendance", unit: "count" },
+  attendance2025: { label: "2025 Attendance", unit: "count" },
   attendanceYoy: {
-    label: "Attendance vs Last Year",
+    label: "Attendance vs Last Year (year-over-year %)",
     unit: "%",
     optimalMin: 7,
     optimalMax: 10,
@@ -95,7 +96,8 @@ const healthTargetDefaults = {
 };
 
 const healthOptimalLabels = {
-  attendance: "Avg",
+  attendance: "Count",
+  attendance2025: "Count",
   kidsCount: "Count",
   growthTrackCount: "Count",
   baptismCount: "Count",
@@ -115,6 +117,7 @@ const healthOptimalLabels = {
 };
 
 const healthDisplayLabels = {
+  attendanceYoy: "Attendance YoY (year-over-year %)",
   growthTrackPct: "Growth Track % of Attendance",
   baptismPct: "Baptisms % of Attendance",
   salvationsPct: "Salvations % of Attendance",
@@ -2612,6 +2615,13 @@ function healthStatus(key, value) {
     const grade = gradeForLowerTarget(value, target.optimalMax);
     return { ...severityFromGrade(grade), grade };
   }
+  if (target.direction === "higher") {
+    const threshold = hasMin ? target.optimalMin : target.optimalMax;
+    if (threshold === undefined || threshold === null) return { label: "Info", tone: "neutral", grade: null };
+    if (value >= threshold) return { label: "On Track", tone: "positive", grade: 1 };
+    const grade = gradeFromDeficit((threshold - value) / threshold);
+    return { ...severityFromGrade(grade), grade };
+  }
   if (hasMin && hasMax && Number(target.optimalMin) === Number(target.optimalMax)) {
     if (value >= target.optimalMin) return { label: "On Track", tone: "positive", grade: 1 };
     const grade = gradeFromDeficit((target.optimalMin - value) / target.optimalMin);
@@ -2621,10 +2631,7 @@ function healthStatus(key, value) {
     const grade = gradeFromDeficit((target.optimalMin - value) / target.optimalMin);
     return { ...severityFromGrade(grade), grade };
   }
-  if (hasMax && value > target.optimalMax) {
-    const grade = gradeAboveRange((value - target.optimalMax) / target.optimalMax);
-    return { label: grade <= 2 ? "Above Target" : "Review", tone: grade <= 2 ? "neutral" : "watch", grade };
-  }
+  if (hasMax && value > target.optimalMax) return { label: "On Track", tone: "positive", grade: 1 };
   return { label: "On Track", tone: "positive", grade: 1 };
 }
 
@@ -2948,6 +2955,7 @@ function buildHealthReport(selectedMonth = selectedHealthMonth(), campusesOverri
   });
   const attendanceYoy = averageNumbers(attendanceYoyValues);
   const attendanceYoyPriorValues = dates.map((date) => nearestPriorAttendance(date, campuses)?.value ?? null);
+  const attendanceYoyPriorAvg = averageNumbers(attendanceYoyPriorValues);
   const attendanceYoyTotal = pctChange(sumNumbers(attendanceValues), sumNumbers(attendanceYoyPriorValues));
   const config = groupConfigFor(campuses, month);
   const groupAttendanceDenominator = config?.baselineAttendance ?? null;
@@ -3047,6 +3055,16 @@ function buildHealthReport(selectedMonth = selectedHealthMonth(), campusesOverri
 
   const rows = [
     row("attendance", attendanceValues, attendanceAvg, "count", "Attendance sheet"),
+    row(
+      "attendance2025",
+      attendanceYoyPriorValues,
+      attendanceYoyPriorAvg,
+      "count",
+      "2025 sheet",
+      undefined,
+      null,
+      { infoOnly: true },
+    ),
     row(
       "attendanceYoy",
       attendanceYoyValues,
