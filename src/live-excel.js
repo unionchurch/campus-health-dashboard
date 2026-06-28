@@ -94,7 +94,7 @@ async function loadLiveWorkbook({ onData, onStatus, forceLogin }) {
     onStatus(`Reading ${driveItem.name || "workbook"}...`);
     const liveData = await readWorkbookData(token, driveItem);
     onData(liveData);
-    onStatus(`Live Excel connected: ${driveItem.name || "SharePoint workbook"}`);
+    onStatus(`Live Excel connected: ${driveItem.name || "SharePoint workbook"}${liveDataHealthSummary(liveData)}`);
   } catch (error) {
     console.error(error);
     onStatus(readableError(error), "error");
@@ -202,7 +202,7 @@ async function readWorkbookData(token, driveItem) {
     "A1:J700",
   );
   sheets["Leadership Input"] = await tryReadFirstRange(
-    ["Leadership Input", "Leadership Health Input", "Leadership Health"],
+    ["Leadership Input", "Leadership", "Leadership Sheet", "Leadership Health Input", "Leadership Health"],
     "A1:I700",
   );
   sheets["Dir-Coord Vacancies"] = await tryReadFirstRange(
@@ -280,6 +280,7 @@ async function getWorkbookRange(token, driveId, itemId, sheetName, address, sess
 
 async function graphJson(token, path, options = {}) {
   const response = await fetch(`${GRAPH_ROOT}${path}`, {
+    cache: "no-store",
     ...options,
     headers: {
       Authorization: `Bearer ${token}`,
@@ -299,6 +300,14 @@ async function graphJson(token, path, options = {}) {
   }
 
   return response.status === 204 ? null : response.json();
+}
+
+function liveDataHealthSummary(liveData) {
+  const leadership = liveData?.health?.leadershipRows?.length;
+  const vacancies = liveData?.health?.dirCoordVacancies?.length;
+  const directors = liveData?.health?.directorRoster?.length;
+  if (leadership === undefined && vacancies === undefined && directors === undefined) return "";
+  return ` · ${leadership || 0} leadership rows · ${vacancies || 0} vacancy rows · ${directors || 0} director rows`;
 }
 
 function buildDashboardData(sheets, driveItem) {
@@ -828,6 +837,7 @@ function extractHealthData(sheets, metrics, latestDate, campuses = []) {
       heartSoulRows,
       leadershipRows,
       activeDreamTeam,
+      dirCoordVacancies,
       directorRoster,
     ),
   };
@@ -925,6 +935,25 @@ function rowBool(row, names) {
 
 function monthKeyFromIso(iso) {
   return iso ? iso.slice(0, 7) : null;
+}
+
+function monthKeyFromDateLike(value) {
+  if (!value) return null;
+  const iso = asDate(value, value);
+  if (iso) return monthKeyFromIso(iso);
+
+  const text = cleanText(value);
+  if (!text) return null;
+  const isoLike = text.match(/^(\d{4})[-/](\d{1,2})(?:[-/]\d{1,2})?/);
+  if (isoLike) return `${isoLike[1]}-${String(Number(isoLike[2])).padStart(2, "0")}`;
+  const usLike = text.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})$/);
+  if (usLike) {
+    const year = usLike[3].length === 2 ? `20${usLike[3]}` : usLike[3];
+    return `${year}-${String(Number(usLike[1])).padStart(2, "0")}`;
+  }
+  const parsed = new Date(`${text} 1`);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return toIsoDate(parsed).slice(0, 7);
 }
 
 function rowMonth(row, names) {
@@ -1534,52 +1563,156 @@ function groupConfigMonth(row) {
   return directMonth;
 }
 
-function extractLongGroupAttendance(range) {
+function extractLongGroupAttendance(range, mode = "attendance") {
   return tableRows(range, ["campus"])
-    .map((row) => ({
-      weekStart: rowDate(row, ["week_start", "week", "date", "sunday", "sunday_date"]),
-      campus: rowText(row, ["campus"]),
-      groupAttendance: rowNumber(row, [
+    .map((row) => {
+      const groupAttendance = rowNumber(row, [
         "group_attendance",
         "weekly_attendance",
         "attendance",
         "attended_count",
         "attended",
-      ]),
-      groupSignups: rowNumber(row, ["group_signups", "signups", "people_signed_up"]),
-      totalGroupMembers: rowNumber(row, ["total_group_members", "group_members", "members"]),
-      activeGroups: rowNumber(row, ["active_groups", "total_groups", "groups"]),
-      notes: rowText(row, ["notes"]),
-    }))
-    .filter((row) => row.weekStart && row.campus && row.groupAttendance !== null);
+      ]);
+      const groupSignups = rowNumber(row, [
+        "group_signups",
+        "group_sign_ups",
+        "signups",
+        "sign_ups",
+        "signup_count",
+        "sign_up_count",
+        "people_signed_up",
+        "registered",
+        "total_group_members",
+        "group_members",
+        "members",
+      ]);
+      return {
+        weekStart: rowDate(row, ["week_start", "week", "date", "sunday", "sunday_date"]),
+        campus: rowText(row, ["campus"]),
+        groupAttendance,
+        groupSignups,
+        totalGroupMembers: rowNumber(row, ["total_group_members", "group_members", "members"]),
+        activeGroups: rowNumber(row, ["active_groups", "total_groups", "groups"]),
+        notes: rowText(row, ["notes"]),
+      };
+    })
+    .filter((row) => {
+      if (!row.weekStart || !row.campus) return false;
+      if (mode === "signups") return row.groupSignups !== null;
+      if (mode === "combined") return row.groupAttendance !== null || row.groupSignups !== null;
+      return row.groupAttendance !== null;
+    });
 }
 
-function extractWideGroupAttendance(range) {
+function extractWideGroupAttendance(range, valueKey = "groupAttendance") {
   const extracted = extractMetricSheet(range);
   return Object.entries(extracted.series).flatMap(([campus, points]) =>
     points.map((point) => ({
       weekStart: point.date,
       campus,
-      groupAttendance: point.value,
+      [valueKey]: point.value,
       event: point.event,
     })),
   );
 }
 
-function extractGroupAttendance(longRange, wideRange) {
-  const rows = [...extractLongGroupAttendance(longRange)];
-  const wideRows = [
-    ...extractWideGroupAttendance(wideRange),
-    ...(rows.length ? [] : extractWideGroupAttendance(longRange)),
-  ];
-  const seen = new Set(rows.map((row) => `${row.weekStart}::${row.campus}`));
-  for (const row of wideRows) {
-    const key = `${row.weekStart}::${row.campus}`;
-    if (!seen.has(key)) {
-      seen.add(key);
-      rows.push(row);
+function groupSectionLabel(value) {
+  const normalized = normalizeCompact(value);
+  if (normalized === "attendance" || normalized === "groupattendance") return "attendance";
+  if (["signup", "signups", "groupsignup", "groupsignups"].includes(normalized)) return "signups";
+  return null;
+}
+
+function groupSectionLabels(range) {
+  const values = matrix(range, "values");
+  const text = matrix(range, "text");
+  const labels = [];
+  for (let row = 0; row < values.length; row += 1) {
+    for (let col = 0; col < (values[row]?.length || 0); col += 1) {
+      const label = groupSectionLabel(text[row]?.[col] || values[row]?.[col]);
+      if (label) labels.push({ row, col, label });
     }
   }
+  return labels;
+}
+
+function sliceRangeCells(range, startRow, endRow, startCol, endCol) {
+  return {
+    values: matrix(range, "values")
+      .slice(startRow, endRow)
+      .map((row) => row.slice(startCol, endCol)),
+    text: matrix(range, "text")
+      .slice(startRow, endRow)
+      .map((row) => row.slice(startCol, endCol)),
+  };
+}
+
+function groupTableSection(range, targetLabel) {
+  const values = matrix(range, "values");
+  if (!values.length) return null;
+  const labels = groupSectionLabels(range);
+  const candidates = labels.filter((item) => item.label === targetLabel);
+  const width = Math.max(...values.map((row) => row.length), 0);
+
+  for (const candidate of candidates) {
+    const nextRight = labels
+      .filter((item) => item.row === candidate.row && item.col > candidate.col)
+      .sort((a, b) => a.col - b.col)[0];
+    const nextLower = labels
+      .filter((item) => item.row > candidate.row)
+      .sort((a, b) => a.row - b.row || a.col - b.col)[0];
+    const section = sliceRangeCells(
+      range,
+      candidate.row,
+      nextLower?.row ?? values.length,
+      candidate.col,
+      nextRight?.col ?? width,
+    );
+    if (tableRows(section, ["campus"]).length || extractMetricSheet(section).headers.length) {
+      return section;
+    }
+  }
+
+  return null;
+}
+
+function mergeGroupRows(rows) {
+  const merged = new Map();
+  for (const row of rows) {
+    if (!row.weekStart || !row.campus) continue;
+    const key = `${row.weekStart}::${normalizeCompact(row.campus)}`;
+    const existing = merged.get(key) || { weekStart: row.weekStart, campus: row.campus };
+    for (const field of ["groupAttendance", "groupSignups", "totalGroupMembers", "activeGroups"]) {
+      if (row[field] !== null && row[field] !== undefined) existing[field] = row[field];
+    }
+    existing.event = existing.event || row.event;
+    existing.notes = existing.notes || row.notes;
+    merged.set(key, existing);
+  }
+  return Array.from(merged.values());
+}
+
+function extractGroupAttendance(longRange, wideRange) {
+  const attendanceSection = groupTableSection(longRange, "attendance");
+  const signupSection = groupTableSection(longRange, "signups");
+
+  if (attendanceSection || signupSection) {
+    const rows = mergeGroupRows([
+      ...extractLongGroupAttendance(attendanceSection, "attendance"),
+      ...extractWideGroupAttendance(attendanceSection, "groupAttendance"),
+      ...extractLongGroupAttendance(signupSection, "signups"),
+      ...extractWideGroupAttendance(signupSection, "groupSignups"),
+    ]);
+    if (rows.length) {
+      return rows.sort((a, b) => a.weekStart.localeCompare(b.weekStart) || a.campus.localeCompare(b.campus));
+    }
+  }
+
+  const rows = mergeGroupRows([
+    ...extractLongGroupAttendance(longRange, "combined"),
+    ...extractWideGroupAttendance(wideRange),
+    ...extractWideGroupAttendance(longRange),
+  ]);
   return rows.sort((a, b) => a.weekStart.localeCompare(b.weekStart) || a.campus.localeCompare(b.campus));
 }
 
@@ -1642,7 +1775,14 @@ function extractDirCoordVacancies(range, campuses = []) {
       const roleLevel = canonicalDirCoordRole(rowText(row, ["role_level", "role", "level"]));
       const filledCount = rowNumber(row, ["filled_count", "filled", "current_count", "current"]);
       const neededCount = rowNumber(row, ["needed_count", "needed", "target_count", "target"]);
-      const enteredVacancyCount = rowNumber(row, ["vacancy_count", "vacancies", "open_count", "open"]);
+      const enteredVacancyCount = rowNumber(row, [
+        "vacancy_count",
+        "vacancies",
+        "total_vacancies",
+        "total_vacancy_count",
+        "open_count",
+        "open",
+      ]);
       const vacancyCount =
         enteredVacancyCount ?? (neededCount !== null && filledCount !== null
           ? Math.max(0, neededCount - filledCount)
@@ -1656,6 +1796,12 @@ function extractDirCoordVacancies(range, campuses = []) {
         filledCount,
         neededCount,
         vacancyCount,
+        vacantSince:
+          rowDate(row, ["vacant_since", "vacancy_since", "open_since", "date_vacant"]) ||
+          rowText(row, ["vacant_since", "vacancy_since", "open_since", "date_vacant"]),
+        filledDate:
+          rowDate(row, ["filled_date", "date_filled", "filled_on", "fill_date"]) ||
+          rowText(row, ["filled_date", "date_filled", "filled_on", "fill_date"]),
       };
     })
     .filter((row) => row.campus && row.roleLevel);
@@ -1688,6 +1834,9 @@ function extractDirectorRoster(range, campuses = []) {
         teamArea: rowText(row, ["team_area", "team", "area", "team_or_area"]),
         position: rowText(row, ["position", "role_title", "director_role", "role_name", "title"]),
         staffVolunteer: rowText(row, ["staff_volunteer", "staff_or_volunteer", "type"]),
+        vacantSince:
+          rowDate(row, ["vacant_since", "vacancy_since", "open_since", "date_vacant"]) ||
+          rowText(row, ["vacant_since", "vacancy_since", "open_since", "date_vacant"]),
       };
     })
     .filter((row) => row.campus && row.name && (!row.roleLevel || row.roleLevel === "Director"));
@@ -1717,6 +1866,7 @@ function extractHealthMonths(
   heartSoulRows,
   leadershipRows,
   activeDreamTeam,
+  dirCoordVacancies = [],
   directorRoster = [],
 ) {
   const months = new Set();
@@ -1732,6 +1882,11 @@ function extractHealthMonths(
   for (const row of heartSoulRows) months.add(row.month);
   for (const row of leadershipRows) months.add(row.month);
   for (const row of activeDreamTeam) months.add(row.month);
+  for (const row of dirCoordVacancies) {
+    months.add(row.month);
+    months.add(monthKeyFromDateLike(row.vacantSince));
+    months.add(monthKeyFromDateLike(row.filledDate));
+  }
   for (const row of directorRoster) months.add(row.month);
   return Array.from(months).filter(Boolean).sort();
 }

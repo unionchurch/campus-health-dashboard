@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Campus Health Dashboard</title>
-    <link rel="stylesheet" href="./styles.css?v=20260614-director-two-columns" />
+    <link rel="stylesheet" href="./styles.css?v=20260624-health-meta-export" />
   </head>
   <body>
     <main class="shell">
@@ -194,6 +194,74 @@
         </section>
       </section>
 
+      <section class="health-mode exec-health-mode metric-mode-panel is-hidden" data-metric-panel="exec-health">
+        <div class="print-report-header" aria-hidden="true">
+          <p>Union Campus Metrics</p>
+          <h1 id="execHealthPrintTitle">Exec Monthly Health Report</h1>
+          <span id="execHealthPrintMeta"></span>
+        </div>
+        <section class="panel health-panel exec-health-panel">
+          <div class="panel-heading health-heading">
+            <div>
+              <span class="panel-kicker">Monthly Health</span>
+              <h2>Exec Monthly Health Report</h2>
+            </div>
+            <div class="health-header-actions">
+              <label class="field compact-field health-month-field">
+                <span>Month</span>
+                <select id="execHealthMonthSelect"></select>
+              </label>
+              <button id="execHealthPrintButton" class="secondary-action health-print-button" type="button">
+                Export PDF
+              </button>
+              <span id="execHealthReportMeta" class="panel-meta"></span>
+            </div>
+          </div>
+          <div class="table-wrap health-table-wrap">
+            <table class="health-report-table exec-health-report-table">
+              <thead id="execHealthTableHead"></thead>
+              <tbody id="execHealthTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+        <section class="panel health-leadership-panel exec-health-leadership-panel">
+          <div class="panel-heading health-heading">
+            <div>
+              <span class="panel-kicker">Leadership Detail</span>
+              <h2>Leadership Vacancies</h2>
+            </div>
+            <span id="execLeadershipVacancyMeta" class="panel-meta"></span>
+          </div>
+          <div
+            id="execLeadershipVacancyChart"
+            class="chart chart-bars leadership-vacancy-chart"
+            aria-label="Executive leadership vacancies by role chart"
+          ></div>
+          <div id="execLeadershipCampusSnapshotWrap" class="leadership-campus-wrap is-hidden">
+            <div class="leadership-campus-heading">
+              <span>Campus vacancy snapshot</span>
+              <span id="execLeadershipCampusMeta"></span>
+            </div>
+            <div
+              id="execLeadershipCampusSnapshot"
+              class="leadership-campus-snapshot"
+              aria-label="Executive leadership vacancies by campus"
+            ></div>
+          </div>
+          <div id="execDirectorRosterWrap" class="director-roster-wrap">
+            <div class="leadership-campus-heading">
+              <span>Filled director positions</span>
+              <span id="execDirectorRosterMeta"></span>
+            </div>
+            <div
+              id="execDirectorRoster"
+              class="director-roster"
+              aria-label="Executive filled director positions by campus"
+            ></div>
+          </div>
+        </section>
+      </section>
+
       <section class="panel big-five-panel metric-mode-panel is-hidden" data-metric-panel="big-five">
         <div class="panel-heading big-five-heading">
           <div>
@@ -311,6 +379,6 @@
       </section>
     </main>
     <script src="https://alcdn.msauth.net/browser/2.38.2/js/msal-browser.min.js"></script>
-    <script type="module" src="./src/app.js?v=20260615-high-percent-on-track"></script>
+    <script type="module" src="./src/app.js?v=20260625-director-vacant-since"></script>
   </body>
 </html>

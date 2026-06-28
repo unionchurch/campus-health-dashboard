@@ -1,5 +1,5 @@
-import dashboardData from "./dashboard-data.js?v=20260615-high-percent-on-track";
-import { setupLiveExcel } from "./live-excel.js?v=20260615-high-percent-on-track";
+import dashboardData from "./dashboard-data.js?v=20260625-director-vacant-since";
+import { setupLiveExcel } from "./live-excel.js?v=20260625-director-vacant-since";
 
 let data = dashboardData;
 
@@ -22,6 +22,7 @@ const metricOrder = [
   "firstTimers",
   "dreamTeam",
   "healthReport",
+  "execHealthReport",
   "bigFive",
   "campusGrowthHistory",
 ];
@@ -335,6 +336,21 @@ const els = {
   healthOverallGrid: document.querySelector("#healthOverallGrid"),
   healthTableHead: document.querySelector("#healthTableHead"),
   healthTableBody: document.querySelector("#healthTableBody"),
+  execHealthMonthSelect: document.querySelector("#execHealthMonthSelect"),
+  execHealthPrintButton: document.querySelector("#execHealthPrintButton"),
+  execHealthPrintTitle: document.querySelector("#execHealthPrintTitle"),
+  execHealthPrintMeta: document.querySelector("#execHealthPrintMeta"),
+  execHealthReportMeta: document.querySelector("#execHealthReportMeta"),
+  execHealthTableHead: document.querySelector("#execHealthTableHead"),
+  execHealthTableBody: document.querySelector("#execHealthTableBody"),
+  execLeadershipVacancyChart: document.querySelector("#execLeadershipVacancyChart"),
+  execLeadershipVacancyMeta: document.querySelector("#execLeadershipVacancyMeta"),
+  execLeadershipCampusSnapshotWrap: document.querySelector("#execLeadershipCampusSnapshotWrap"),
+  execLeadershipCampusMeta: document.querySelector("#execLeadershipCampusMeta"),
+  execLeadershipCampusSnapshot: document.querySelector("#execLeadershipCampusSnapshot"),
+  execDirectorRosterWrap: document.querySelector("#execDirectorRosterWrap"),
+  execDirectorRosterMeta: document.querySelector("#execDirectorRosterMeta"),
+  execDirectorRoster: document.querySelector("#execDirectorRoster"),
   leadershipVacancyChart: document.querySelector("#leadershipVacancyChart"),
   leadershipVacancyMeta: document.querySelector("#leadershipVacancyMeta"),
   leadershipCampusSnapshotWrap: document.querySelector("#leadershipCampusSnapshotWrap"),
@@ -363,6 +379,8 @@ function getMetricLabels() {
       key,
       key === "healthReport"
         ? "Monthly Health Report"
+        : key === "execHealthReport"
+          ? "Exec Monthly Health Report"
         : key === "bigFive"
           ? "Big 5"
           : key === "campusGrowthHistory"
@@ -545,7 +563,12 @@ function setupControls() {
     state.healthMonth = event.target.value;
     updateDashboard();
   });
+  els.execHealthMonthSelect?.addEventListener("change", (event) => {
+    state.healthMonth = event.target.value;
+    updateDashboard();
+  });
   els.healthPrintButton?.addEventListener("click", printHealthReport);
+  els.execHealthPrintButton?.addEventListener("click", printExecHealthReport);
 
   liveExcel = setupLiveExcel({
     onData: applyDashboardData,
@@ -647,21 +670,23 @@ function syncHealthMonthOptions() {
   const defaultMonth = defaultHealthMonth();
   const currentMonth = currentMonthKey();
   const currentSelection = state.healthMonth;
-  els.healthMonthSelect.innerHTML = "";
-  for (const month of months.slice().reverse()) {
-    const option = document.createElement("option");
-    option.value = month;
-    option.textContent =
-      month === currentMonth
-        ? `${formatMonth(month)} (Current)`
-        : month === defaultMonth
-          ? `${formatMonth(month)} (Latest)`
-          : formatMonth(month);
-    els.healthMonthSelect.append(option);
-  }
   state.healthMonth = months.includes(currentSelection) ? currentSelection : defaultMonth;
-  if (state.healthMonth) els.healthMonthSelect.value = state.healthMonth;
-  els.healthMonthSelect.disabled = months.length === 0;
+  for (const select of [els.healthMonthSelect, els.execHealthMonthSelect].filter(Boolean)) {
+    select.innerHTML = "";
+    for (const month of months.slice().reverse()) {
+      const option = document.createElement("option");
+      option.value = month;
+      option.textContent =
+        month === currentMonth
+          ? `${formatMonth(month)} (Current)`
+          : month === defaultMonth
+            ? `${formatMonth(month)} (Latest)`
+            : formatMonth(month);
+      select.append(option);
+    }
+    if (state.healthMonth) select.value = state.healthMonth;
+    select.disabled = months.length === 0;
+  }
 }
 
 function updateSourceLabels() {
@@ -2755,10 +2780,32 @@ function groupAttendanceByWeek(campuses, month) {
   const byWeek = new Map();
   for (const row of data.health?.groupAttendance || []) {
     if (!campuses.includes(row.campus) || !sameMonth(row.weekStart, month)) continue;
-    if (!byWeek.has(row.weekStart)) byWeek.set(row.weekStart, { weekStart: row.weekStart, attendance: 0 });
-    byWeek.get(row.weekStart).attendance += row.groupAttendance || 0;
+    if (!byWeek.has(row.weekStart)) {
+      byWeek.set(row.weekStart, {
+        weekStart: row.weekStart,
+        attendance: 0,
+        signups: 0,
+        hasAttendance: false,
+        hasSignups: false,
+      });
+    }
+    const week = byWeek.get(row.weekStart);
+    if (isFiniteNumber(row.groupAttendance)) {
+      week.attendance += row.groupAttendance;
+      week.hasAttendance = true;
+    }
+    if (isFiniteNumber(row.groupSignups)) {
+      week.signups += row.groupSignups;
+      week.hasSignups = true;
+    }
   }
-  return Array.from(byWeek.values()).sort((a, b) => a.weekStart.localeCompare(b.weekStart));
+  return Array.from(byWeek.values())
+    .map((week) => ({
+      weekStart: week.weekStart,
+      attendance: week.hasAttendance ? week.attendance : null,
+      signups: week.hasSignups ? week.signups : null,
+    }))
+    .sort((a, b) => a.weekStart.localeCompare(b.weekStart));
 }
 
 function heartSoulSummary(campuses, month, role) {
@@ -2781,22 +2828,97 @@ function heartSoulSummary(campuses, month, role) {
   };
 }
 
-function leadershipSummary(campuses, month) {
-  const sourceRows = (data.health?.leadershipRows || []).filter(
+function leadershipInputRowsFor(campuses, month) {
+  return (data.health?.leadershipRows || []).filter(
     (row) => campuses.includes(row.campus) && row.month === month,
   );
+}
+
+function leadershipInputRoleSummary(sourceRows, role) {
+  const rows = sourceRows.filter((row) => String(row.role || "").toLowerCase() === role.toLowerCase());
+  const target = sumNumbers(rows.map((row) => row.targetPositions));
+  const filled = sumNumbers(rows.map((row) => row.filledPositions));
+  const vacancies = sumNumbers(rows.map((row) => row.vacancies));
+  return {
+    role,
+    target,
+    filled,
+    vacancies,
+    fillPct: target && filled !== null ? (filled / target) * 100 : null,
+    source: rows.length ? "Leadership Input" : null,
+  };
+}
+
+function dirCoordRowsForCampuses(campuses, month, roleLevel) {
+  return (data.health?.dirCoordVacancies || []).filter((row) => {
+    const roleMatch = String(row.roleLevel || "").toLowerCase() === roleLevel.toLowerCase();
+    return roleMatch && campuses.includes(row.campus) && dirCoordVacancyVisibleInMonth(row, month);
+  });
+}
+
+function dirCoordRowsForLeadershipTotals(rows, roleLevel) {
+  const isCoordinator = String(roleLevel || "").toLowerCase() === "coordinator";
+  if (!isCoordinator) return rows;
+
+  const groups = new Map();
+  for (const row of rows) {
+    const groupKey = `${normalizeText(row.campus)}:${normalizeText(row.ministry || "No ministry listed")}`;
+    if (!groups.has(groupKey)) groups.set(groupKey, { summaryRows: [], detailRows: [] });
+    const group = groups.get(groupKey);
+    if (isCoordinatorSummaryRow(row)) {
+      group.summaryRows.push(row);
+    } else {
+      group.detailRows.push(row);
+    }
+  }
+
+  return Array.from(groups.values()).flatMap((group) =>
+    group.summaryRows.length ? group.summaryRows : group.detailRows,
+  );
+}
+
+function dirCoordRoleSummary(campuses, month, role) {
+  const allRows = dirCoordRowsForCampuses(campuses, month, role);
+  if (!allRows.length) return null;
+  const rows = dirCoordRowsForLeadershipTotals(allRows, role);
+  const target = sumNumbers(rows.map((row) => row.neededCount));
+  const filled = sumNumbers(rows.map((row) => row.filledCount));
+  const vacancyValues = rows.map((row) =>
+    isFiniteNumber(row.vacancyCount)
+      ? row.vacancyCount
+      : isFiniteNumber(row.neededCount) && isFiniteNumber(row.filledCount)
+        ? Math.max(0, row.neededCount - row.filledCount)
+        : null,
+  );
+  const vacancies = sumNumbers(vacancyValues);
+  return {
+    role,
+    target,
+    filled,
+    vacancies,
+    fillPct: target && filled !== null ? (filled / target) * 100 : null,
+    source: "Dir-Coord Vacancies",
+  };
+}
+
+function mergeLeadershipRoleSummary(inputSummary, detailSummary) {
+  if (!detailSummary) return inputSummary;
+  return {
+    ...inputSummary,
+    target: inputSummary.target ?? detailSummary.target,
+    filled: inputSummary.filled ?? detailSummary.filled,
+    vacancies: inputSummary.vacancies ?? detailSummary.vacancies,
+    fillPct: inputSummary.fillPct ?? detailSummary.fillPct,
+    source: inputSummary.source ? `${inputSummary.source} + ${detailSummary.source}` : detailSummary.source,
+  };
+}
+
+function leadershipSummary(campuses, month) {
+  const sourceRows = leadershipInputRowsFor(campuses, month);
   const roles = ["Director", "Coordinator", "Team Lead"].map((role) => {
-    const rows = sourceRows.filter((row) => String(row.role || "").toLowerCase() === role.toLowerCase());
-    const target = sumNumbers(rows.map((row) => row.targetPositions));
-    const filled = sumNumbers(rows.map((row) => row.filledPositions));
-    const vacancies = sumNumbers(rows.map((row) => row.vacancies));
-    return {
-      role,
-      target,
-      filled,
-      vacancies,
-      fillPct: target && filled !== null ? (filled / target) * 100 : null,
-    };
+    const inputSummary = leadershipInputRoleSummary(sourceRows, role);
+    const detailSummary = dirCoordRoleSummary(campuses, month, role);
+    return mergeLeadershipRoleSummary(inputSummary, detailSummary);
   });
   const target = sumNumbers(roles.map((row) => row.target));
   const filled = sumNumbers(roles.map((row) => row.filled));
@@ -2910,6 +3032,12 @@ function campusLeadershipVacancyRows(month) {
         fillPct: leadership.fillPct,
         impact,
         priorityRank: roleVacancies[0] ? leadershipRoleRank(roleVacancies[0].role) : leadershipRoleOrder.length,
+        roleVacancyCounts: Object.fromEntries(
+          leadershipRoleOrder.map((roleName) => [
+            roleName,
+            roleVacancies.find((role) => String(role.role).toLowerCase() === roleName.toLowerCase())?.vacancies || 0,
+          ]),
+        ),
         roleDetails: roleVacancies.map((role) => ({
           role: role.role,
           label: leadershipRoleLabel(role.role),
@@ -2923,8 +3051,9 @@ function campusLeadershipVacancyRows(month) {
     )
     .sort(
       (a, b) =>
-        (b.impact.grade ?? -1) - (a.impact.grade ?? -1) ||
-        a.priorityRank - b.priorityRank ||
+        (b.roleVacancyCounts?.Director || 0) - (a.roleVacancyCounts?.Director || 0) ||
+        (b.roleVacancyCounts?.Coordinator || 0) - (a.roleVacancyCounts?.Coordinator || 0) ||
+        (b.roleVacancyCounts?.["Team Lead"] || 0) - (a.roleVacancyCounts?.["Team Lead"] || 0) ||
         (b.vacancies || 0) - (a.vacancies || 0) ||
         a.campus.localeCompare(b.campus),
     );
@@ -2962,6 +3091,15 @@ function buildHealthReport(selectedMonth = selectedHealthMonth(), campusesOverri
   const groupStatusOverride = config ? null : notGradedStatus();
   const activeDreamTeam = activeDreamTeamForMonth(campuses, month, attendanceAvg);
   const groupWeeks = groupAttendanceByWeek(campuses, month);
+  const groupSignupValues = dates.map((date) => {
+    const week = groupWeeks.find((item) => item.weekStart === date);
+    return week?.signups ?? null;
+  });
+  const hasGroupSignupWeeks = groupSignupValues.some((value) => isFiniteNumber(value));
+  const groupSignupAvg = averageNumbers(groupSignupValues);
+  const groupSignupTotal = sumNumbers(groupSignupValues);
+  const groupMemberCount = hasGroupSignupWeeks ? groupSignupAvg : (config?.totalGroupMembers ?? null);
+  const groupMemberTotal = hasGroupSignupWeeks ? groupSignupTotal : (config?.totalGroupMembers ?? null);
   const leadership = leadershipSummary(campuses, month);
   const leadershipVacancyAttention = leadershipVacancyStatus(campuses, month, attendanceAvg, leadership);
 
@@ -3024,7 +3162,7 @@ function buildHealthReport(selectedMonth = selectedHealthMonth(), campusesOverri
   const groupAttendanceValues = dates.map((date) => {
     const week = groupWeeks.find((item) => item.weekStart === date);
     const attended = week?.attendance ?? null;
-    const members = config?.totalGroupMembers ?? null;
+    const members = week?.signups ?? groupMemberCount;
     return {
       attended,
       members,
@@ -3034,16 +3172,17 @@ function buildHealthReport(selectedMonth = selectedHealthMonth(), campusesOverri
   const groupAverage = averageNumbers(groupWeeks.map((week) => week.attendance));
   const groupAttendanceTotal = sumNumbers(groupWeeks.map((week) => week.attendance));
   const groupAttendanceCountValues = groupAttendanceValues.map((value) => value.attended);
+  const groupAttendanceMemberTotal = sumNumbers(groupAttendanceValues.map((value) => value.members));
   const groupMonthValue = {
     attended: groupAverage,
-    members: config?.totalGroupMembers ?? null,
+    members: groupMemberCount,
     pct: averageNumbers(groupAttendanceValues.map((value) => value.pct)),
   };
   const groupTotalValue = {
     attended: groupAttendanceTotal,
-    members: config?.totalGroupMembers ?? null,
-    pct: config?.totalGroupMembers && groupAttendanceTotal !== null
-      ? (groupAttendanceTotal / config.totalGroupMembers) * 100
+    members: groupAttendanceMemberTotal,
+    pct: groupAttendanceMemberTotal && groupAttendanceTotal !== null
+      ? (groupAttendanceTotal / groupAttendanceMemberTotal) * 100
       : null,
   };
 
@@ -3083,9 +3222,7 @@ function buildHealthReport(selectedMonth = selectedHealthMonth(), campusesOverri
     row("growthTrackCount", growthTrackValues, growthTrackAvg, "count", "Growth Track sheet"),
     ratioRow("growthTrackPct", "growthTrack"),
     row("baptismCount", baptismValues, baptismAvg, "count", "Baptism sheet"),
-    ratioRow("baptismPct", "baptism", "Baptism sheet"),
     row("salvationsCount", salvationValues, salvationAvg, "count", "Salvations sheet"),
-    ratioRow("salvationsPct", "salvations"),
     row("firstTimersCount", firstTimerValues, firstTimerAvg, "count", "First Time Guests sheet"),
     ratioRow("firstTimersPct", "firstTimers"),
     row("dreamTeamServing", dreamTeamServingValues, dreamTeamServingAvg, "count", "Sunday - Dream Team"),
@@ -3134,21 +3271,25 @@ function buildHealthReport(selectedMonth = selectedHealthMonth(), campusesOverri
     ),
     row(
       "groupMembersCount",
-      dates.map(() => null),
-      config?.totalGroupMembers ?? null,
+      hasGroupSignupWeeks ? groupSignupValues : dates.map(() => null),
+      groupMemberCount,
       "count",
-      "Groups Goals",
+      hasGroupSignupWeeks ? "Groups Sign Ups" : "Groups Goals",
       undefined,
       groupStatusOverride,
+      {
+        totalValue: groupMemberTotal,
+        avgValue: groupMemberCount,
+      },
     ),
     row(
       "groupMembersPct",
       dates.map(() => null),
-      config?.totalGroupMembers !== null && config?.totalGroupMembers !== undefined && groupAttendanceDenominator
-        ? (config.totalGroupMembers / groupAttendanceDenominator) * 100
+      groupMemberCount !== null && groupMemberCount !== undefined && groupAttendanceDenominator
+        ? (groupMemberCount / groupAttendanceDenominator) * 100
         : null,
       "pct",
-      "Groups Goals",
+      hasGroupSignupWeeks ? "Groups Sign Ups" : "Groups Goals",
       undefined,
       groupStatusOverride,
     ),
@@ -3678,12 +3819,167 @@ function renderHealthTable(report) {
     .join("");
 }
 
+const execHealthRowKeys = new Set([
+  "attendance",
+  "attendance2025",
+  "kidsCount",
+  "growthTrackCount",
+  "baptismCount",
+  "salvationsCount",
+  "firstTimersCount",
+  "dreamTeamServing",
+  "groupActualGoal",
+  "groupMembersCount",
+  "groupAttendanceCount",
+]);
+
+const execHealthTargetRows = {
+  kidsCount: "kidsPct",
+  growthTrackCount: "growthTrackPct",
+  firstTimersCount: "firstTimersPct",
+  groupMembersCount: "groupMembersPct",
+};
+
+const execHealthRowLabels = {
+  groupMembersCount: "Group Sign Ups",
+};
+
+function execHealthTargetText(targetKey) {
+  const target = healthTarget(targetKey);
+  const hasMin = target.optimalMin !== undefined && target.optimalMin !== null;
+  const hasMax = target.optimalMax !== undefined && target.optimalMax !== null;
+  if (!hasMin && !hasMax) return null;
+  if (hasMin && hasMax && Number(target.optimalMin) === Number(target.optimalMax)) {
+    return formatTargetPct(target.optimalMin);
+  }
+  if (hasMin && hasMax) return `${formatTargetPct(target.optimalMin)}-${formatTargetPct(target.optimalMax)}`;
+  if (hasMin) return formatTargetPct(target.optimalMin);
+  return formatTargetPct(target.optimalMax);
+}
+
+function execHealthRowLabel(row) {
+  const baseLabel = execHealthRowLabels[row.key] || row.label;
+  const targetKey = execHealthTargetRows[row.key];
+  const targetText = targetKey ? execHealthTargetText(targetKey) : null;
+  return targetText ? `${baseLabel} (${targetText})` : baseLabel;
+}
+
+function execPreviousMonthAttendanceRow(report, previousReport) {
+  const previousAttendance = healthRowMap(previousReport).get("attendance");
+  if (!previousAttendance) return null;
+  return {
+    ...previousAttendance,
+    key: "previousMonthAttendance",
+    label: "Previous Month Attendance",
+    weeklyValues: report.dates.map((_, index) => previousAttendance.weeklyValues[index] ?? null),
+    previousMonthRow: null,
+  };
+}
+
+function execHealthRows(report, previousReport) {
+  const previousRows = healthRowMap(previousReport);
+  const rows = [];
+  for (const row of report.rows || []) {
+    if (!execHealthRowKeys.has(row.key)) continue;
+    rows.push({
+      ...row,
+      label: execHealthRowLabel(row),
+      previousMonthRow: previousRows.get(row.key) || null,
+    });
+    if (row.key === "attendance") {
+      const previousAttendance = execPreviousMonthAttendanceRow(report, previousReport);
+      if (previousAttendance) rows.push(previousAttendance);
+    }
+  }
+  return rows;
+}
+
+function formatExecPreviousMonthCell(row) {
+  if (!row) return "--";
+  const total = formatHealthCell(row.format, row.totalValue);
+  const avg = formatHealthCell(row.format, row.avgValue);
+  if (total === "--" && avg === "--") return "--";
+  if (total === avg) return `<span class="exec-previous-month-single">${escapeHtml(total)}</span>`;
+  return `
+    <span class="exec-previous-month-block">
+      <span><strong>Total</strong> ${escapeHtml(total)}</span>
+      <span><strong>Avg</strong> ${escapeHtml(avg)}</span>
+    </span>
+  `;
+}
+
+function renderExecHealthTable(report) {
+  if (!els.execHealthTableHead || !els.execHealthTableBody) return;
+  const previousMonth = previousHealthMonth(report.month);
+  const previousReport = previousMonth ? buildHealthReport(previousMonth, report.campuses) : null;
+  const headerCell = (label) => `<th>${label}</th>`;
+  const weekHeaders = report.dates.map((date) => headerCell(shortDate(date))).join("");
+  els.execHealthTableHead.innerHTML = `
+    <tr>
+      ${headerCell("Metric")}
+      ${weekHeaders}
+      ${headerCell("Total")}
+      ${headerCell("Avg")}
+      ${headerCell("Previous Month")}
+    </tr>
+  `;
+
+  if (!report.month) {
+    els.execHealthTableBody.innerHTML = `
+      <tr>
+        <td colspan="${report.dates.length + 4}">Connect Excel to load the exec monthly health report.</td>
+      </tr>
+    `;
+    return;
+  }
+
+  els.execHealthTableBody.innerHTML = execHealthRows(report, previousReport)
+    .map(
+      (row) => `
+        <tr>
+          <td>${row.label}</td>
+          ${row.weeklyValues.map((value) => `<td>${formatHealthCell(row.format, value)}</td>`).join("")}
+          <td>${formatHealthCell(row.format, row.totalValue)}</td>
+          <td>${formatHealthCell(row.format, row.avgValue)}</td>
+          <td class="exec-previous-month-cell">${formatExecPreviousMonthCell(row.previousMonthRow)}</td>
+        </tr>
+      `,
+    )
+    .join("");
+}
+
+function monthKeyFromDateLike(value) {
+  if (!value) return null;
+  const text = String(value).trim();
+  const isoLike = text.match(/^(\d{4})[-/](\d{1,2})(?:[-/]\d{1,2})?/);
+  if (isoLike) return `${isoLike[1]}-${String(Number(isoLike[2])).padStart(2, "0")}`;
+  const usLike = text.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})$/);
+  if (usLike) {
+    const year = usLike[3].length === 2 ? `20${usLike[3]}` : usLike[3];
+    return `${year}-${String(Number(usLike[1])).padStart(2, "0")}`;
+  }
+  const parsed = new Date(text);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function dirCoordVacancyVisibleInMonth(row, month) {
+  if (!month) return true;
+  const vacantMonth = monthKeyFromDateLike(row.vacantSince);
+  const filledMonth = monthKeyFromDateLike(row.filledDate);
+
+  if (filledMonth && month >= filledMonth) return false;
+  if (vacantMonth) return month >= vacantMonth;
+  if (row.month) return row.month === month;
+  return true;
+}
+
 function dirCoordVacancyRowsFor(campus, roleLevel, month) {
   return (data.health?.dirCoordVacancies || [])
     .filter((row) => {
       const roleMatch = String(row.roleLevel || "").toLowerCase() === roleLevel.toLowerCase();
       const campusMatch = normalizeText(row.campus) === normalizeText(campus);
-      const monthMatch = !row.month || !month || row.month === month;
+      const monthMatch = dirCoordVacancyVisibleInMonth(row, month);
       return roleMatch && campusMatch && monthMatch;
     })
     .sort(
@@ -3693,26 +3989,154 @@ function dirCoordVacancyRowsFor(campus, roleLevel, month) {
     );
 }
 
+function directorRosterVisibleInMonth(row, month) {
+  if (!month) return true;
+  const vacantMonth = monthKeyFromDateLike(row.vacantSince);
+  if (vacantMonth && month >= vacantMonth) return false;
+  if (row.month) return row.month === month;
+  return true;
+}
+
+function renderDirCoordVacancyItem(row, roleLevel) {
+  const isDirector = String(roleLevel || "").toLowerCase() === "director";
+  const detailParts = [];
+  if (!isDirector) detailParts.push(row.teamArea || "No team/area listed");
+  detailParts.push(`${formatNumber(row.filledCount)}/${formatNumber(row.neededCount)}`);
+
+  return `
+    <div class="dir-coord-vacancy-item">
+      <strong class="dir-coord-ministry">${escapeHtml(row.ministry || "No ministry listed")}</strong>
+      ${detailParts
+        .map((part) => `
+          <span class="dir-coord-dot">·</span>
+          <span>${escapeHtml(part)}</span>
+        `)
+        .join("")}
+    </div>
+  `;
+}
+
+function isCoordinatorSummaryRow(row) {
+  const teamArea = normalizeText(row.teamArea);
+  return !teamArea || teamArea === "total" || teamArea === "ministry total";
+}
+
+function vacancyCountLabel(row) {
+  if (isFiniteNumber(row?.filledCount) || isFiniteNumber(row?.neededCount)) {
+    return `${formatNumber(row.filledCount)}/${formatNumber(row.neededCount)}`;
+  }
+  if (isFiniteNumber(row?.vacancyCount)) {
+    const label = row.vacancyCount === 1 ? "vacancy" : "vacancies";
+    return `${formatNumber(row.vacancyCount)} ${label}`;
+  }
+  return "--";
+}
+
+function coordinatorMinistryGroups(rows) {
+  const grouped = new Map();
+  for (const row of rows) {
+    const ministry = row.ministry || "No ministry listed";
+    if (!grouped.has(ministry)) grouped.set(ministry, { ministry, summary: null, roles: [] });
+    const group = grouped.get(ministry);
+    if (isCoordinatorSummaryRow(row)) {
+      group.summary = row;
+    } else {
+      group.roles.push(row);
+    }
+  }
+
+  return Array.from(grouped.values()).map((group) => {
+    const calculated = {
+      filledCount: sumNumbers(group.roles.map((row) => row.filledCount)),
+      neededCount: sumNumbers(group.roles.map((row) => row.neededCount)),
+      vacancyCount: sumNumbers(group.roles.map((row) => row.vacancyCount)),
+    };
+    return {
+      ...group,
+      summary: group.summary || calculated,
+    };
+  });
+}
+
+function coordinatorGroupWeight(group) {
+  return Math.max(1, group.roles.length + 1);
+}
+
+function coordinatorVacancyColumns(rows) {
+  const columnCount = 3;
+  const groups = coordinatorMinistryGroups(rows);
+  const columns = Array.from({ length: columnCount }, () => ({ weight: 0, groups: [] }));
+  for (const group of groups) {
+    columns.sort((a, b) => a.weight - b.weight);
+    columns[0].groups.push(group);
+    columns[0].weight += coordinatorGroupWeight(group);
+  }
+  return columns.map((column) => column.groups).filter((groups) => groups.length);
+}
+
+function renderCoordinatorVacancyGroup(group) {
+  return `
+    <div class="coord-ministry-group">
+      <div class="coord-ministry-heading">
+        <strong>${escapeHtml(group.ministry)}</strong>
+        <span class="dir-coord-dot">·</span>
+        <strong>${escapeHtml(vacancyCountLabel(group.summary))}</strong>
+      </div>
+      ${
+        group.roles.length
+          ? `
+            <div class="coord-role-list">
+              ${group.roles
+                .map(
+                  (row) => `
+                    <div class="coord-role-item">
+                      <span class="coord-role-dash">-</span>
+                      <span>${escapeHtml(row.teamArea || "No team/area listed")}</span>
+                      <span class="dir-coord-dot">·</span>
+                      <span>${escapeHtml(vacancyCountLabel(row))}</span>
+                    </div>
+                  `,
+                )
+                .join("")}
+            </div>
+          `
+          : ""
+      }
+    </div>
+  `;
+}
+
+function dirCoordVacancyColumns(rows, roleLevel) {
+  const isCoordinator = String(roleLevel || "").toLowerCase() === "coordinator";
+  if (isCoordinator) return coordinatorVacancyColumns(rows);
+  const columnCount = isCoordinator ? 3 : 1;
+  const rowsPerColumn = isCoordinator ? Math.max(6, Math.ceil(rows.length / columnCount)) : Math.max(1, rows.length);
+  return Array.from({ length: columnCount }, (_, index) =>
+    rows.slice(index * rowsPerColumn, (index + 1) * rowsPerColumn),
+  ).filter((column) => column.length);
+}
+
 function renderDirCoordVacancyDetails(report) {
   if (state.campus === "All Campuses") return "";
   const sections = ["Director", "Coordinator"].map((roleLevel) => {
     const rows = dirCoordVacancyRowsFor(state.campus, roleLevel, report.month);
+    const sectionClass = roleLevel.toLowerCase();
     return `
-      <section class="dir-coord-vacancy-section">
+      <section class="dir-coord-vacancy-section is-${sectionClass}">
         <h3>${roleLevel} Vacancies</h3>
         ${
           rows.length
             ? `
               <div class="dir-coord-vacancy-list">
-                ${rows
+                ${dirCoordVacancyColumns(rows, roleLevel)
                   .map(
-                    (row) => `
-                      <div class="dir-coord-vacancy-item">
-                        <span>${escapeHtml(row.ministry || "No ministry listed")}</span>
-                        <span class="dir-coord-dot">·</span>
-                        <span>${escapeHtml(row.teamArea || "No team/area listed")}</span>
-                        <span class="dir-coord-dot">·</span>
-                        <strong>${formatNumber(row.filledCount)}/${formatNumber(row.neededCount)}</strong>
+                    (columnRows) => `
+                      <div class="dir-coord-vacancy-column">
+                        ${
+                          roleLevel === "Coordinator"
+                            ? columnRows.map(renderCoordinatorVacancyGroup).join("")
+                            : columnRows.map((row) => renderDirCoordVacancyItem(row, roleLevel)).join("")
+                        }
                       </div>
                     `,
                   )
@@ -3728,7 +4152,10 @@ function renderDirCoordVacancyDetails(report) {
   return `<div class="dir-coord-vacancy-detail">${sections.join("")}</div>`;
 }
 
-function renderLeadershipVacancyChart(report) {
+function renderLeadershipVacancyChart(report, targets = {}) {
+  const meta = targets.meta || els.leadershipVacancyMeta;
+  const chart = targets.chart || els.leadershipVacancyChart;
+  if (!meta || !chart) return;
   const rows = report.leadership.roles.map((role) => ({
     label: role.role,
     value: role.vacancies ?? null,
@@ -3738,11 +4165,11 @@ function renderLeadershipVacancyChart(report) {
   const hasData = rows.some((row) => row.value !== null);
   const totalVacancies = sumNumbers(rows.map((row) => row.value));
 
-  els.leadershipVacancyMeta.textContent =
+  meta.textContent =
     totalVacancies !== null ? `${formatNumber(totalVacancies)} total vacancies` : "Needs data";
 
   if (!hasData) {
-    els.leadershipVacancyChart.innerHTML = `
+    chart.innerHTML = `
       <div class="empty">Leadership target and filled counts will appear here.</div>
       ${renderDirCoordVacancyDetails(report)}
     `;
@@ -3750,7 +4177,7 @@ function renderLeadershipVacancyChart(report) {
   }
 
   const max = Math.max(...rows.map((row) => row.value || 0), 1);
-  els.leadershipVacancyChart.innerHTML = `
+  chart.innerHTML = `
     ${rows
       .map((row) => {
         const width = row.value ? Math.max(6, (row.value / max) * 100) : 0;
@@ -3774,29 +4201,32 @@ function renderLeadershipVacancyChart(report) {
   `;
 }
 
-function renderCampusVacancySnapshot(report) {
-  if (!els.leadershipCampusSnapshotWrap || !els.leadershipCampusSnapshot) return;
+function renderCampusVacancySnapshot(report, targets = {}) {
+  const wrap = targets.wrap || els.leadershipCampusSnapshotWrap;
+  const snapshot = targets.snapshot || els.leadershipCampusSnapshot;
+  const meta = targets.meta || els.leadershipCampusMeta;
+  if (!wrap || !snapshot || !meta) return;
   const showSnapshot = state.campus === "All Campuses";
-  els.leadershipCampusSnapshotWrap.classList.toggle("is-hidden", !showSnapshot);
+  wrap.classList.toggle("is-hidden", !showSnapshot);
   if (!showSnapshot) return;
 
   const rows = campusLeadershipVacancyRows(report.month);
   const totalVacancies = sumNumbers(rows.map((row) => row.vacancies));
   const campusesWithVacancies = rows.filter((row) => (row.vacancies || 0) > 0).length;
-  els.leadershipCampusMeta.textContent =
+  meta.textContent =
     totalVacancies !== null
-      ? `${formatNumber(totalVacancies)} total · ${formatNumber(campusesWithVacancies)} campuses · ranked by impact`
+      ? `${formatNumber(totalVacancies)} total · ${formatNumber(campusesWithVacancies)} campuses`
       : "Needs data";
 
   if (!rows.length) {
-    els.leadershipCampusSnapshot.innerHTML = `
+    snapshot.innerHTML = `
       <div class="empty">Campus vacancy totals will appear here once leadership data is available.</div>
     `;
     return;
   }
 
   const maxVacancies = Math.max(...rows.map((row) => row.vacancies || 0), 1);
-  els.leadershipCampusSnapshot.innerHTML = rows
+  snapshot.innerHTML = rows
     .map((row) => {
       const vacancies = isFiniteNumber(row.vacancies) ? row.vacancies : null;
       const width = vacancies ? Math.max(8, (vacancies / maxVacancies) * 100) : 0;
@@ -3838,7 +4268,7 @@ function directorRosterRowsFor(campuses, month) {
   return (data.health?.directorRoster || [])
     .filter((row) => {
       const campusMatch = campuses.includes(row.campus);
-      const monthMatch = !row.month || !month || row.month === month;
+      const monthMatch = directorRosterVisibleInMonth(row, month);
       return campusMatch && monthMatch && row.name;
     })
     .sort(
@@ -3854,13 +4284,24 @@ function directorRosterArea(row) {
   return [row.ministry, row.teamArea, row.position, row.staffVolunteer].filter(Boolean).join(" · ") || "Director position";
 }
 
-function renderDirectorRoster(report) {
-  if (!els.directorRosterWrap || !els.directorRoster || !els.directorRosterMeta) return;
+function directorRosterColumns(rows) {
+  const columnCount = 5;
+  const rowsPerColumn = Math.max(2, Math.ceil(rows.length / columnCount));
+  return Array.from({ length: columnCount }, (_, index) =>
+    rows.slice(index * rowsPerColumn, (index + 1) * rowsPerColumn),
+  );
+}
+
+function renderDirectorRoster(report, targets = {}) {
+  const wrap = targets.wrap || els.directorRosterWrap;
+  const roster = targets.roster || els.directorRoster;
+  const meta = targets.meta || els.directorRosterMeta;
+  if (!wrap || !roster || !meta) return;
   const showRoster = state.campus !== "All Campuses";
-  els.directorRosterWrap.classList.toggle("is-hidden", !showRoster);
+  wrap.classList.toggle("is-hidden", !showRoster);
   if (!showRoster) {
-    els.directorRosterMeta.textContent = "";
-    els.directorRoster.innerHTML = "";
+    meta.textContent = "";
+    roster.innerHTML = "";
     return;
   }
 
@@ -3868,14 +4309,14 @@ function renderDirectorRoster(report) {
   const rows = directorRosterRowsFor(campuses, report.month);
   const hasAnyRosterData = (data.health?.directorRoster || []).length > 0;
 
-  els.directorRosterMeta.textContent = rows.length
+  meta.textContent = rows.length
     ? `${formatNumber(rows.length)} filled directors`
     : hasAnyRosterData
       ? "No directors listed for this view"
       : "Ready for director roster sheet";
 
   if (!rows.length) {
-    els.directorRoster.innerHTML = `
+    roster.innerHTML = `
       <div class="empty">
         ${
           hasAnyRosterData
@@ -3893,18 +4334,26 @@ function renderDirectorRoster(report) {
     grouped.get(row.campus).push(row);
   }
 
-  els.directorRoster.innerHTML = Array.from(grouped.entries())
+  roster.innerHTML = Array.from(grouped.entries())
     .map(
       ([campus, campusRows]) => `
         <article class="director-roster-card">
           <h3>${escapeHtml(campus)}</h3>
           <div class="director-roster-list">
-            ${campusRows
+            ${directorRosterColumns(campusRows)
               .map(
-                (row) => `
-                  <div class="director-roster-item">
-                    <strong>${escapeHtml(row.name)}</strong>
-                    <span>${escapeHtml(directorRosterArea(row))}</span>
+                (columnRows) => `
+                  <div class="director-roster-column">
+                    ${columnRows
+                      .map(
+                        (row) => `
+                          <div class="director-roster-item">
+                            <strong>${escapeHtml(row.name)}</strong>
+                            <span>${escapeHtml(directorRosterArea(row))}</span>
+                          </div>
+                        `,
+                      )
+                      .join("")}
                   </div>
                 `,
               )
@@ -3931,6 +4380,41 @@ function renderHealth() {
   renderDirectorRoster(report);
 }
 
+function renderExecHealth() {
+  syncHealthMonthOptions();
+  const report = buildHealthReport();
+  renderExecHealthPrintHeader(report);
+  if (els.execHealthReportMeta) {
+    els.execHealthReportMeta.textContent = report.month
+      ? `${healthMonthDisplay(report.month)} · ${state.campus}`
+      : "Current month";
+  }
+  renderExecHealthTable(report);
+  renderLeadershipVacancyChart(report, {
+    chart: els.execLeadershipVacancyChart,
+    meta: els.execLeadershipVacancyMeta,
+  });
+  renderCampusVacancySnapshot(report, {
+    wrap: els.execLeadershipCampusSnapshotWrap,
+    meta: els.execLeadershipCampusMeta,
+    snapshot: els.execLeadershipCampusSnapshot,
+  });
+  renderDirectorRoster(report, {
+    wrap: els.execDirectorRosterWrap,
+    meta: els.execDirectorRosterMeta,
+    roster: els.execDirectorRoster,
+  });
+}
+
+function renderExecHealthPrintHeader(report) {
+  if (!els.execHealthPrintTitle || !els.execHealthPrintMeta) return;
+  const campusLabel = state.campus === "All Campuses" ? "All Campuses" : state.campus;
+  const monthLabel = report.month ? healthMonthDisplay(report.month) : "Current month";
+  const workbookLabel = els.sourceName?.textContent?.trim() || "Campus dashboard";
+  els.execHealthPrintTitle.textContent = `${campusLabel} Exec Health Report`;
+  els.execHealthPrintMeta.textContent = `${monthLabel} · ${workbookLabel}`;
+}
+
 function renderHealthPrintHeader(report) {
   if (!els.healthPrintTitle || !els.healthPrintMeta) return;
   const campusLabel = state.campus === "All Campuses" ? "All Campuses" : state.campus;
@@ -3947,6 +4431,17 @@ function printHealthReport() {
     window.print();
     window.setTimeout(() => {
       document.body.classList.remove("print-health-report");
+    }, 250);
+  }, 50);
+}
+
+function printExecHealthReport() {
+  if (!isExecHealthReportSelected()) return;
+  document.body.classList.add("print-health-report", "print-exec-health-report");
+  window.setTimeout(() => {
+    window.print();
+    window.setTimeout(() => {
+      document.body.classList.remove("print-health-report", "print-exec-health-report");
     }, 250);
   }, 50);
 }
@@ -4808,6 +5303,10 @@ function isHealthReportSelected() {
   return state.metric === "healthReport";
 }
 
+function isExecHealthReportSelected() {
+  return state.metric === "execHealthReport";
+}
+
 function isBigFiveSelected() {
   return state.metric === "bigFive";
 }
@@ -4817,11 +5316,12 @@ function isGrowthHistorySelected() {
 }
 
 function isStandardMetricSelected() {
-  return !isHealthReportSelected() && !isBigFiveSelected() && !isGrowthHistorySelected();
+  return !isHealthReportSelected() && !isExecHealthReportSelected() && !isBigFiveSelected() && !isGrowthHistorySelected();
 }
 
 function renderMetricPanels() {
   const showHealth = isHealthReportSelected();
+  const showExecHealth = isExecHealthReportSelected();
   const showBigFive = isBigFiveSelected();
   const showGrowthHistory = isGrowthHistorySelected();
   const showStandard = isStandardMetricSelected();
@@ -4829,6 +5329,7 @@ function renderMetricPanels() {
     const mode = panel.dataset.metricPanel;
     const visible =
       (mode === "health" && showHealth) ||
+      (mode === "exec-health" && showExecHealth) ||
       (mode === "big-five" && showBigFive) ||
       (mode === "growth-history" && showGrowthHistory) ||
       (mode === "standard" && showStandard);
@@ -4891,6 +5392,10 @@ function updateDashboard() {
   renderMetricPanels();
   if (isHealthReportSelected()) {
     renderHealth();
+    return;
+  }
+  if (isExecHealthReportSelected()) {
+    renderExecHealth();
     return;
   }
   if (isBigFiveSelected()) {

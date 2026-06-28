@@ -870,6 +870,11 @@ figcaption,
   background: var(--surface);
 }
 
+.exec-health-report-table {
+  min-width: 980px;
+  table-layout: fixed;
+}
+
 .health-report-table th,
 .health-report-table td {
   height: 36px;
@@ -893,6 +898,11 @@ figcaption,
   background: var(--surface);
   font-size: 0.9rem;
   text-align: right;
+}
+
+.health-report-table tbody td:not(:first-child) {
+  color: var(--ink-soft);
+  font-weight: 850;
 }
 
 .health-report-table tbody tr:nth-child(even) td {
@@ -919,6 +929,62 @@ figcaption,
 .health-report-table th:nth-child(2) {
   color: var(--muted);
   text-align: left;
+}
+
+.exec-health-report-table th,
+.exec-health-report-table td {
+  padding: 7px 6px;
+}
+
+.exec-health-report-table th:first-child,
+.exec-health-report-table td:first-child {
+  width: 250px;
+  min-width: 230px;
+  text-align: left;
+}
+
+.exec-health-report-table th:first-child,
+.exec-health-report-table th:nth-child(2),
+.exec-health-report-table th:not(:first-child) {
+  color: #000000;
+}
+
+.exec-health-report-table th:not(:first-child) {
+  text-align: center;
+}
+
+.exec-health-report-table td:nth-child(2),
+.exec-health-report-table td:not(:first-child) {
+  color: var(--text);
+  text-align: center;
+}
+
+.exec-health-report-table th:last-child,
+.exec-health-report-table td:last-child {
+  width: 130px;
+}
+
+.exec-previous-month-cell {
+  line-height: 1.25;
+  white-space: normal;
+}
+
+.exec-previous-month-block {
+  display: inline-grid;
+  gap: 2px;
+  min-width: 82px;
+  text-align: left;
+}
+
+.exec-previous-month-block strong {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 820;
+  text-transform: uppercase;
+}
+
+.exec-previous-month-single {
+  font-weight: 740;
 }
 
 .health-report-table th.grade-header,
@@ -1127,24 +1193,24 @@ figcaption,
 
 .dir-coord-vacancy-detail {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 14px;
+  grid-template-columns: minmax(150px, 0.38fr) minmax(0, 1.62fr);
+  gap: 10px;
+  margin-top: 10px;
 }
 
 .dir-coord-vacancy-section {
   min-width: 0;
-  padding: 12px;
+  padding: 10px;
   background: #ffffff;
   border: 2px solid var(--line);
   border-radius: 8px;
 }
 
 .dir-coord-vacancy-section h3 {
-  margin: 0 0 10px;
+  margin: 0 0 8px;
   color: var(--ink-soft);
   font-family: var(--display-font);
-  font-size: 0.95rem;
+  font-size: 0.88rem;
   font-weight: 900;
   text-transform: uppercase;
 }
@@ -1158,17 +1224,34 @@ figcaption,
 
 .dir-coord-vacancy-list {
   display: grid;
-  gap: 7px;
+  gap: 6px;
+}
+
+.dir-coord-vacancy-section.is-coordinator .dir-coord-vacancy-list {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px 10px;
+}
+
+.dir-coord-vacancy-column {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
 }
 
 .dir-coord-vacancy-item {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
   align-items: baseline;
   color: var(--muted);
-  font-size: 0.82rem;
-  line-height: 1.35;
+  font-size: 0.78rem;
+  line-height: 1.25;
+}
+
+.dir-coord-ministry {
+  color: var(--ink-soft);
+  font-weight: 900;
 }
 
 .dir-coord-dot {
@@ -1177,6 +1260,47 @@ figcaption,
 }
 
 .dir-coord-vacancy-item strong {
+  color: var(--ink-soft);
+  font-weight: 850;
+}
+
+.coord-ministry-group {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.coord-ministry-heading {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: baseline;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
+.coord-ministry-heading strong {
+  font-weight: 900;
+}
+
+.coord-role-list {
+  display: grid;
+  gap: 2px;
+  padding-left: 10px;
+}
+
+.coord-role-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: baseline;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.2;
+}
+
+.coord-role-dash {
   color: var(--ink-soft);
   font-weight: 850;
 }
@@ -1209,20 +1333,19 @@ figcaption,
 
 .director-roster {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px 18px;
 }
 
 .director-roster-card {
   min-width: 0;
-  padding: 10px;
-  background: #ffffff;
-  border: 2px solid var(--line);
-  border-radius: 8px;
+  padding: 8px 0 0;
+  background: transparent;
+  border-top: 1px solid rgba(42, 38, 43, 0.18);
 }
 
 .director-roster-card h3 {
-  margin: 0 0 8px;
+  margin: 0 0 6px;
   color: var(--ink-soft);
   font-family: var(--display-font);
   font-size: 0.9rem;
@@ -1232,39 +1355,47 @@ figcaption,
 
 .director-roster-list {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 7px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px 14px;
+}
+
+.director-roster-column {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
 }
 
 .director-roster-item {
-  display: grid;
-  gap: 2px;
+  display: block;
   min-width: 0;
-  padding: 7px 8px;
-  background: rgba(255, 255, 241, 0.65);
-  border: 1px solid rgba(42, 38, 43, 0.12);
-  border-radius: 6px;
+  padding: 0;
+  background: transparent;
+  border: 0;
 }
 
 .director-roster-item:first-child {
-  padding-top: 7px;
-  border-top: 1px solid rgba(42, 38, 43, 0.12);
+  padding-top: 0;
+  border-top: 0;
 }
 
 .director-roster-item strong {
+  display: block;
   overflow-wrap: anywhere;
   color: var(--ink-soft);
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 850;
   line-height: 1.2;
 }
 
 .director-roster-item span {
+  display: block;
   overflow-wrap: anywhere;
   color: var(--muted);
-  font-size: 0.74rem;
+  font-size: 0.7rem;
   font-weight: 650;
   line-height: 1.25;
+  white-space: nowrap;
 }
 
 .campus-vacancy-card {
@@ -1557,10 +1688,11 @@ tbody tr.active {
 
   body.print-health-report .masthead,
   body.print-health-report .toolbar,
-  body.print-health-report .metric-mode-panel:not([data-metric-panel="health"]),
+  body.print-health-report:not(.print-exec-health-report) .metric-mode-panel:not([data-metric-panel="health"]),
+  body.print-exec-health-report .metric-mode-panel:not([data-metric-panel="exec-health"]),
   body.print-health-report .health-month-field,
   body.print-health-report .health-print-button,
-  body.print-health-report .health-header-actions {
+  body.print-health-report .health-grade-explanation {
     display: none !important;
   }
 
@@ -1629,6 +1761,22 @@ tbody tr.active {
     font-size: 8pt;
   }
 
+  body.print-health-report .health-header-actions {
+    display: flex !important;
+    align-items: flex-start;
+    justify-content: flex-end;
+    gap: 0;
+    min-width: 180px;
+  }
+
+  body.print-health-report .health-header-actions .panel-meta {
+    padding-bottom: 0;
+    color: #625d62;
+    font-size: 8pt;
+    font-weight: 800;
+    text-align: right;
+  }
+
   body.print-health-report .health-overall-grid,
   body.print-health-report .health-overall-grid.multi-campus {
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1671,6 +1819,10 @@ tbody tr.active {
     white-space: normal;
   }
 
+  body.print-health-report .health-report-table tbody td:not(:first-child) {
+    font-weight: 850;
+  }
+
   body.print-health-report .health-table-wrap td:first-child {
     min-width: 0;
   }
@@ -1693,15 +1845,26 @@ tbody tr.active {
 
   body.print-health-report .leadership-subtext,
   body.print-health-report .dir-coord-vacancy-item,
+  body.print-health-report .coord-ministry-heading,
+  body.print-health-report .coord-role-item,
   body.print-health-report .dir-coord-vacancy-section p {
-    font-size: 7pt;
+    font-size: 6.5pt;
   }
 
-  body.print-health-report .dir-coord-vacancy-detail,
-  body.print-health-report .director-roster,
   body.print-health-report .campus-health-insight-columns {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
+  }
+
+  body.print-health-report .director-roster {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  body.print-health-report .dir-coord-vacancy-detail {
+    grid-template-columns: minmax(95px, 0.32fr) minmax(0, 1.68fr);
+    gap: 5px;
+    margin-top: 5px;
   }
 
   body.print-health-report .dir-coord-vacancy-section,
@@ -1710,6 +1873,38 @@ tbody tr.active {
   body.print-health-report .insight {
     border-width: 1px;
     border-radius: 0;
+  }
+
+  body.print-health-report .director-roster-card {
+    padding: 5px 0 0;
+    border-width: 1px 0 0;
+  }
+
+  body.print-health-report .dir-coord-vacancy-section {
+    padding: 5px;
+  }
+
+  body.print-health-report .dir-coord-vacancy-section h3 {
+    margin-bottom: 3px;
+    font-size: 7pt;
+  }
+
+  body.print-health-report .dir-coord-vacancy-section.is-coordinator .dir-coord-vacancy-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 3px 5px;
+  }
+
+  body.print-health-report .dir-coord-vacancy-column {
+    gap: 3px;
+  }
+
+  body.print-health-report .coord-ministry-group {
+    gap: 2px;
+  }
+
+  body.print-health-report .coord-role-list {
+    gap: 1px;
+    padding-left: 7px;
   }
 
   body.print-health-report .director-roster-wrap {
@@ -1722,17 +1917,19 @@ tbody tr.active {
   }
 
   body.print-health-report .director-roster-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 4px 12px;
   }
 
   body.print-health-report .director-roster-item {
-    padding: 5px 6px;
-    border-width: 1px;
+    padding: 0;
+    border: 0;
     border-radius: 0;
   }
 
   body.print-health-report .director-roster-item span {
     font-size: 7pt;
+    white-space: nowrap;
   }
 
   body.print-health-report .health-insight-grid {
@@ -1756,6 +1953,208 @@ tbody tr.active {
   body.print-health-report .insight-body {
     font-size: 7.5pt;
     line-height: 1.3;
+  }
+
+  body.print-exec-health-report .exec-health-mode {
+    gap: 4px;
+  }
+
+  body.print-exec-health-report .print-report-header {
+    margin-bottom: 5px;
+    padding-bottom: 4px;
+    border-bottom-width: 2px;
+  }
+
+  body.print-exec-health-report .print-report-header p {
+    margin-bottom: 1px;
+    font-size: 6.5pt;
+  }
+
+  body.print-exec-health-report .print-report-header h1 {
+    font-size: 17pt;
+  }
+
+  body.print-exec-health-report .print-report-header span {
+    margin-top: 2px;
+    font-size: 7pt;
+  }
+
+  body.print-exec-health-report .panel {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
+  body.print-exec-health-report .panel-heading {
+    padding: 4px 6px 2px;
+  }
+
+  body.print-exec-health-report h2 {
+    font-size: 9pt;
+  }
+
+  body.print-exec-health-report .panel-kicker,
+  body.print-exec-health-report .panel-meta {
+    font-size: 6pt;
+  }
+
+  body.print-exec-health-report .table-wrap.health-table-wrap {
+    padding: 0 6px 4px;
+  }
+
+  body.print-exec-health-report .exec-health-report-table th,
+  body.print-exec-health-report .exec-health-report-table td {
+    padding: 2px 3px;
+    font-size: 6.2pt;
+    line-height: 1.08;
+  }
+
+  body.print-exec-health-report .exec-health-report-table tbody td:not(:first-child) {
+    font-weight: 850;
+  }
+
+  body.print-exec-health-report .exec-health-report-table th:first-child,
+  body.print-exec-health-report .exec-health-report-table td:first-child {
+    width: 190px;
+    min-width: 0;
+  }
+
+  body.print-exec-health-report .exec-health-report-table th:last-child,
+  body.print-exec-health-report .exec-health-report-table td:last-child {
+    width: 88px;
+  }
+
+  body.print-exec-health-report .exec-previous-month-block {
+    min-width: 58px;
+    gap: 0;
+  }
+
+  body.print-exec-health-report .exec-previous-month-block strong {
+    font-size: 5.5pt;
+  }
+
+  body.print-exec-health-report .leadership-vacancy-chart {
+    padding: 2px 6px 4px;
+  }
+
+  body.print-exec-health-report .leadership-row {
+    min-height: 28px;
+    margin-bottom: 3px;
+    grid-template-columns: minmax(105px, 0.65fr) minmax(0, 1.6fr) 32px;
+  }
+
+  body.print-exec-health-report .leadership-subtext {
+    display: block;
+    margin-top: 1px;
+    font-size: 5.8pt;
+    line-height: 1.1;
+  }
+
+  body.print-exec-health-report .leadership-campus-wrap,
+  body.print-exec-health-report .director-roster-wrap {
+    padding: 0 6px 5px;
+  }
+
+  body.print-exec-health-report .director-roster {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+    margin-top: 4px;
+  }
+
+  body.print-exec-health-report .dir-coord-vacancy-detail {
+    grid-template-columns: minmax(85px, 0.3fr) minmax(0, 1.7fr);
+    gap: 4px;
+    margin-top: 4px;
+  }
+
+  body.print-exec-health-report .dir-coord-vacancy-section,
+  body.print-exec-health-report .director-roster-card {
+    padding: 5px;
+  }
+
+  body.print-exec-health-report .dir-coord-vacancy-section.is-coordinator .dir-coord-vacancy-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 2px 4px;
+  }
+
+  body.print-exec-health-report .dir-coord-vacancy-column {
+    gap: 2px;
+  }
+
+  body.print-exec-health-report .coord-ministry-group {
+    gap: 1px;
+  }
+
+  body.print-exec-health-report .coord-role-list {
+    gap: 1px;
+    padding-left: 6px;
+  }
+
+  body.print-exec-health-report .director-roster-card {
+    padding: 4px 0 0;
+    border-width: 1px 0 0;
+  }
+
+  body.print-exec-health-report .dir-coord-vacancy-section h3,
+  body.print-exec-health-report .director-roster-card h3 {
+    margin-bottom: 4px;
+    font-size: 7pt;
+  }
+
+  body.print-exec-health-report .dir-coord-vacancy-list {
+    gap: 3px;
+  }
+
+  body.print-exec-health-report .director-roster-list {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 4px 12px;
+  }
+
+  body.print-exec-health-report .director-roster-column {
+    gap: 2px;
+  }
+
+  body.print-exec-health-report .leadership-campus-heading {
+    padding-bottom: 3px;
+    font-size: 6pt;
+  }
+
+  body.print-exec-health-report .leadership-campus-snapshot {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  body.print-exec-health-report .campus-vacancy-card {
+    min-height: 42px;
+    padding: 5px;
+    gap: 3px 6px;
+    border-width: 1px;
+  }
+
+  body.print-exec-health-report .campus-vacancy-name,
+  body.print-exec-health-report .campus-vacancy-roles span {
+    font-size: 6pt;
+  }
+
+  body.print-exec-health-report .campus-vacancy-roles {
+    gap: 2px;
+    margin-top: 3px;
+  }
+
+  body.print-exec-health-report .campus-vacancy-roles span {
+    min-height: 0;
+    padding: 2px 4px;
+  }
+
+  body.print-exec-health-report .campus-vacancy-roles strong {
+    font-size: 6.5pt;
+  }
+
+  body.print-exec-health-report .campus-vacancy-number {
+    font-size: 11pt;
+  }
+
+  body.print-exec-health-report .campus-vacancy-track {
+    height: 3px;
   }
 }
 
@@ -1840,6 +2239,10 @@ tbody tr.active {
   }
 
   .director-roster-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dir-coord-vacancy-section.is-coordinator .dir-coord-vacancy-list {
     grid-template-columns: 1fr;
   }
 
