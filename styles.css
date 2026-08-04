@@ -372,8 +372,37 @@ figcaption,
   stroke-linecap: round;
 }
 
+.comparison-line {
+  stroke: #2a262b;
+  stroke-width: 3;
+  stroke-dasharray: 7 7;
+  opacity: 0.72;
+}
+
 .series-area {
   fill: rgba(196, 215, 44, 0.16);
+}
+
+.chart-legend text {
+  fill: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.legend-line {
+  fill: none;
+  stroke-linecap: round;
+  stroke-width: 4;
+}
+
+.legend-line.current {
+  stroke: var(--green);
+}
+
+.legend-line.prior {
+  stroke: #2a262b;
+  stroke-dasharray: 6 6;
+  opacity: 0.72;
 }
 
 .point {
@@ -446,6 +475,10 @@ figcaption,
   fill: var(--surface);
   font-size: 11px;
   font-weight: 760;
+}
+
+.chart-point-tooltip .comparison-note {
+  fill: #f9f9ea;
 }
 
 .bar-row {
@@ -1191,6 +1224,52 @@ figcaption,
   background: linear-gradient(90deg, var(--amber), var(--red));
 }
 
+.role-ministry-vacancy-breakdown {
+  margin: 2px 0 8px;
+  padding: 8px 10px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.role-ministry-vacancy-title {
+  margin-bottom: 5px;
+  color: var(--ink-soft);
+  font-size: 0.76rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.role-ministry-vacancy-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px 10px;
+}
+
+.role-ministry-vacancy-breakdown.is-single .role-ministry-vacancy-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.role-ministry-vacancy-role {
+  display: block;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.2;
+}
+
+.role-ministry-vacancy-role strong {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--ink-soft);
+  font-weight: 900;
+}
+
+.role-ministry-vacancy-role span {
+  display: block;
+  min-width: 0;
+}
+
 .dir-coord-vacancy-detail {
   display: grid;
   grid-template-columns: minmax(150px, 0.38fr) minmax(0, 1.62fr);
@@ -1625,6 +1704,395 @@ figcaption,
   padding: 0 16px 16px;
 }
 
+.flowers-report-mode {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.flowers-report-heading {
+  align-items: center;
+}
+
+.flowers-report-body {
+  display: grid;
+  gap: 14px;
+  padding: 0 16px 16px;
+}
+
+.flowers-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.flowers-kpi {
+  min-height: 96px;
+  padding: 12px;
+  box-shadow: none;
+}
+
+.flowers-kpi .kpi-value {
+  margin-top: 8px;
+  font-size: 1.72rem;
+}
+
+.flowers-kpi .kpi-note {
+  margin-top: 6px;
+  font-size: 0.74rem;
+}
+
+.flowers-report-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.65fr);
+  gap: 14px;
+}
+
+.flowers-lower-grid {
+  grid-template-columns: minmax(260px, 0.78fr) minmax(0, 1.22fr);
+}
+
+.flowers-card {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  background: #ffffff;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+}
+
+.flowers-card-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  padding: 12px 14px 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.flowers-card-heading span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 840;
+  text-transform: uppercase;
+}
+
+.flowers-card-heading strong {
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  font-weight: 860;
+}
+
+.flowers-card-heading em {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 760;
+}
+
+.flowers-summary-table {
+  display: grid;
+  padding: 8px 12px 12px;
+}
+
+.flowers-summary-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.95fr) repeat(4, minmax(72px, 0.7fr)) minmax(170px, 1.1fr);
+  gap: 8px;
+  align-items: start;
+  min-height: 42px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.25;
+}
+
+.flowers-summary-row:last-child {
+  border-bottom: 0;
+}
+
+.flowers-summary-row strong,
+.flowers-summary-row > span:not(:first-child) {
+  color: var(--ink-soft);
+  font-weight: 860;
+  font-variant-numeric: tabular-nums;
+}
+
+.flowers-summary-row span span {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 650;
+}
+
+.flowers-summary-row em {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-style: normal;
+  font-weight: 650;
+}
+
+.flowers-summary-head {
+  min-height: 0;
+  padding-top: 0;
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 860;
+  text-transform: uppercase;
+}
+
+.flowers-summary-head span {
+  color: var(--muted) !important;
+}
+
+.flowers-groups-table,
+.flowers-capacity-grid {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.flowers-group-row,
+.flowers-capacity-item {
+  display: grid;
+  grid-template-columns: minmax(78px, 0.7fr) minmax(80px, 0.8fr) minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-height: 40px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.82rem;
+}
+
+.flowers-group-row:last-child,
+.flowers-capacity-item:last-child {
+  border-bottom: 0;
+}
+
+.flowers-group-row strong,
+.flowers-capacity-item span {
+  color: var(--ink-soft);
+  font-weight: 880;
+}
+
+.flowers-group-row span,
+.flowers-capacity-item strong {
+  color: var(--text);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.flowers-group-row em,
+.flowers-capacity-item em {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-style: normal;
+  line-height: 1.25;
+}
+
+.flowers-growth-chart {
+  min-height: 230px;
+  padding: 10px 14px 14px;
+}
+
+.flowers-leadership-panel {
+  margin-bottom: 0;
+}
+
+.flowers-leadership-chart {
+  min-height: 140px;
+}
+
+.flowers-director-roster-wrap {
+  padding-bottom: 16px;
+}
+
+.flowers-leadership-breakdown {
+  display: grid;
+  gap: 10px;
+  padding: 0 18px 14px;
+}
+
+.flowers-team-leadership {
+  display: grid;
+  gap: 8px;
+}
+
+.flowers-team-table-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.flowers-team-leadership-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+.flowers-team-leadership-heading span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 860;
+  text-transform: uppercase;
+}
+
+.flowers-team-leadership-heading strong {
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.flowers-team-leadership-table {
+  display: grid;
+  overflow: hidden;
+  background: #ffffff;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+}
+
+.flowers-team-row {
+  display: grid;
+  grid-template-columns: minmax(112px, 1.15fr) repeat(3, minmax(48px, 0.55fr));
+  gap: 6px;
+  align-items: center;
+  min-height: 24px;
+  padding: 4px 7px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.66rem;
+  line-height: 1.15;
+}
+
+.flowers-team-row:last-child {
+  border-bottom: 0;
+}
+
+.flowers-team-row strong {
+  color: var(--ink-soft);
+  font-weight: 860;
+}
+
+.flowers-team-row > span:not(:first-child) {
+  justify-self: center;
+  min-width: 42px;
+  padding: 2px 5px;
+  border-radius: 999px;
+  color: var(--ink-soft);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.flowers-team-head {
+  min-height: 0;
+  background: var(--green);
+  color: #000000;
+  font-size: 0.62rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.flowers-team-head span,
+.flowers-team-head > span:not(:first-child) {
+  color: #000000;
+  background: transparent;
+}
+
+.flowers-team-row .needs-attention {
+  color: #b63d49;
+  background: #fff0f2;
+}
+
+.flowers-team-row .on-track {
+  color: #293522;
+  background: #eef7d0;
+}
+
+.flowers-team-row .not-applicable {
+  color: var(--muted);
+  background: var(--surface-2);
+}
+
+.flowers-leadership-role-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.flowers-leadership-role {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px;
+  background: #ffffff;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+}
+
+.flowers-leadership-role span,
+.flowers-understaffed-note span {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 860;
+  text-transform: uppercase;
+}
+
+.flowers-leadership-role strong {
+  color: var(--ink-soft);
+  font-family: var(--display-font);
+  font-size: 1.35rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.flowers-leadership-role em {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.flowers-leadership-track {
+  height: 6px;
+  overflow: hidden;
+  background: var(--surface-2);
+  border-radius: 999px;
+}
+
+.flowers-leadership-track span {
+  display: block;
+  height: 100%;
+  background: var(--green);
+  border-radius: inherit;
+}
+
+.flowers-understaffed-note {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: baseline;
+  padding: 9px 10px;
+  background: #fff7ea;
+  border: 2px solid var(--green);
+  border-radius: 8px;
+}
+
+.flowers-understaffed-note strong {
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+  font-weight: 900;
+}
+
 .table-panel table {
   min-width: 620px;
 }
@@ -1669,6 +2137,11 @@ tbody tr.active {
   @page {
     size: letter landscape;
     margin: 0.35in;
+  }
+
+  @page flowers-report {
+    size: letter landscape;
+    margin: 0.24in 0.25in;
   }
 
   body.print-health-report,
@@ -2049,6 +2522,36 @@ tbody tr.active {
     line-height: 1.1;
   }
 
+  body.print-exec-health-report .role-ministry-vacancy-breakdown {
+    margin: 1px 0 4px;
+    padding: 4px 5px;
+    border-width: 1px;
+    border-radius: 4px;
+  }
+
+  body.print-exec-health-report .role-ministry-vacancy-title {
+    margin-bottom: 2px;
+    font-size: 6pt;
+  }
+
+  body.print-exec-health-report .role-ministry-vacancy-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 2px 6px;
+  }
+
+  body.print-exec-health-report .role-ministry-vacancy-breakdown.is-single .role-ministry-vacancy-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.print-exec-health-report .role-ministry-vacancy-role {
+    font-size: 5.8pt;
+    line-height: 1.08;
+  }
+
+  body.print-exec-health-report .role-ministry-vacancy-role strong {
+    margin-bottom: 1px;
+  }
+
   body.print-exec-health-report .leadership-campus-wrap,
   body.print-exec-health-report .director-roster-wrap {
     padding: 0 6px 5px;
@@ -2156,6 +2659,434 @@ tbody tr.active {
   body.print-exec-health-report .campus-vacancy-track {
     height: 3px;
   }
+
+  body.print-flowers-report,
+  body.print-flowers-report .shell {
+    page: flowers-report;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    color: #000000;
+    background: #ffffff;
+  }
+
+  body.print-flowers-report * {
+    box-shadow: none !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  body.print-flowers-report .masthead,
+  body.print-flowers-report .toolbar,
+  body.print-flowers-report .metric-mode-panel:not([data-metric-panel="flowers-report"]),
+  body.print-flowers-report .health-print-button {
+    display: none !important;
+  }
+
+  body.print-flowers-report .flowers-report-mode {
+    display: grid !important;
+    gap: 4px;
+    margin: 0;
+  }
+
+  body.print-flowers-report .print-report-header {
+    display: block;
+    margin: 0 0 3px;
+    padding: 0 0 2px;
+    border-bottom: 1px solid #c4d72c;
+  }
+
+  body.print-flowers-report .print-report-header p {
+    margin: 0;
+    color: #2a262b;
+    font-size: 5.2pt;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  body.print-flowers-report .print-report-header h1 {
+    margin: 0;
+    color: #000000;
+    font-size: 16.5pt;
+    line-height: 0.95;
+  }
+
+  body.print-flowers-report .print-report-header span {
+    display: none;
+  }
+
+  body.print-flowers-report .panel {
+    overflow: visible;
+    background: #ffffff;
+    border: 1px solid #deded1;
+    border-radius: 0;
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
+  body.print-flowers-report .panel-heading {
+    min-height: 0;
+    padding: 3px 5px 1px;
+  }
+
+  body.print-flowers-report .panel-kicker,
+  body.print-flowers-report .panel-meta {
+    font-size: 5.3pt;
+  }
+
+  body.print-flowers-report h2 {
+    font-size: 8.2pt;
+  }
+
+  body.print-flowers-report .flowers-report-body {
+    gap: 4px;
+    padding: 0 5px 4px;
+  }
+
+  body.print-flowers-report .flowers-kpi-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  body.print-flowers-report .flowers-kpi {
+    min-height: 44px;
+    padding: 4px;
+    border-width: 1px;
+    border-top-width: 3px;
+    border-radius: 0;
+  }
+
+  body.print-flowers-report .flowers-kpi .kpi-label {
+    font-size: 5.6pt;
+    line-height: 1;
+  }
+
+  body.print-flowers-report .flowers-kpi .kpi-value {
+    margin-top: 2px;
+    font-size: 12.2pt;
+  }
+
+  body.print-flowers-report .flowers-kpi .kpi-note {
+    margin-top: 1px;
+    font-size: 5pt;
+    line-height: 1.1;
+  }
+
+  body.print-flowers-report .flowers-report-grid {
+    grid-template-columns: minmax(0, 1.28fr) minmax(190px, 0.72fr);
+    gap: 5px;
+  }
+
+  body.print-flowers-report .flowers-lower-grid {
+    grid-template-columns: minmax(220px, 0.78fr) minmax(0, 1.22fr);
+  }
+
+  body.print-flowers-report .flowers-card {
+    border-width: 1px;
+    border-radius: 0;
+  }
+
+  body.print-flowers-report .flowers-card-heading {
+    min-height: 0;
+    padding: 3px 5px 2px;
+  }
+
+  body.print-flowers-report .flowers-card-heading span,
+  body.print-flowers-report .flowers-card-heading em {
+    font-size: 5.4pt;
+  }
+
+  body.print-flowers-report .flowers-card-heading strong {
+    font-size: 6.2pt;
+  }
+
+  body.print-flowers-report .flowers-summary-table,
+  body.print-flowers-report .flowers-groups-table,
+  body.print-flowers-report .flowers-capacity-grid {
+    gap: 0;
+    padding: 3px 5px 4px;
+  }
+
+  body.print-flowers-report .flowers-summary-row {
+    grid-template-columns: minmax(78px, 0.8fr) repeat(4, minmax(46px, 0.55fr)) minmax(115px, 1.25fr);
+    gap: 4px;
+    min-height: 20px;
+    padding: 2px 0;
+    font-size: 5.7pt;
+    line-height: 1.08;
+  }
+
+  body.print-flowers-report .flowers-summary-head {
+    font-size: 5pt;
+  }
+
+  body.print-flowers-report .flowers-summary-row span span,
+  body.print-flowers-report .flowers-summary-row em {
+    margin-top: 1px;
+    font-size: 4.8pt;
+    line-height: 1.05;
+  }
+
+  body.print-flowers-report .flowers-group-row,
+  body.print-flowers-report .flowers-capacity-item {
+    grid-template-columns: minmax(50px, 0.65fr) minmax(54px, 0.6fr) minmax(0, 1.1fr);
+    gap: 5px;
+    min-height: 20px;
+    padding: 3px 0;
+    font-size: 5.9pt;
+  }
+
+  body.print-flowers-report .flowers-group-row em,
+  body.print-flowers-report .flowers-capacity-item em {
+    font-size: 5.1pt;
+    line-height: 1.08;
+  }
+
+  body.print-flowers-report .flowers-growth-chart {
+    min-height: 98px;
+    padding: 3px 5px 4px;
+  }
+
+  body.print-flowers-report .bar-row {
+    min-height: 16px;
+    grid-template-columns: 35px minmax(0, 1fr) 42px;
+    gap: 5px;
+    padding: 1px 0;
+  }
+
+  body.print-flowers-report .bar-label,
+  body.print-flowers-report .bar-value {
+    font-size: 5.6pt;
+  }
+
+  body.print-flowers-report .bar-track {
+    height: 7px;
+  }
+
+  body.print-flowers-report .bar-note {
+    display: none;
+  }
+
+  body.print-flowers-report .leadership-vacancy-chart {
+    min-height: 0;
+    padding: 2px 6px 4px;
+  }
+
+  body.print-flowers-report .leadership-row {
+    min-height: 21px;
+    margin-bottom: 2px;
+    grid-template-columns: minmax(92px, 0.58fr) minmax(0, 1.7fr) 28px;
+    gap: 5px;
+  }
+
+  body.print-flowers-report .leadership-role,
+  body.print-flowers-report .leadership-value {
+    font-size: 6.3pt;
+  }
+
+  body.print-flowers-report .leadership-subtext {
+    margin-top: 1px;
+    font-size: 5.2pt;
+    line-height: 1.05;
+  }
+
+  body.print-flowers-report .dir-coord-vacancy-detail {
+    grid-template-columns: minmax(85px, 0.32fr) minmax(0, 1.68fr);
+    gap: 4px;
+    margin-top: 3px;
+  }
+
+  body.print-flowers-report .dir-coord-vacancy-section {
+    padding: 4px;
+    border-width: 1px;
+    border-radius: 0;
+  }
+
+  body.print-flowers-report .dir-coord-vacancy-section h3 {
+    margin-bottom: 2px;
+    font-size: 6pt;
+  }
+
+  body.print-flowers-report .dir-coord-vacancy-section p,
+  body.print-flowers-report .dir-coord-vacancy-item,
+  body.print-flowers-report .coord-ministry-heading,
+  body.print-flowers-report .coord-role-item {
+    font-size: 5.2pt;
+    line-height: 1.05;
+  }
+
+  body.print-flowers-report .dir-coord-vacancy-section.is-coordinator .dir-coord-vacancy-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1px 4px;
+  }
+
+  body.print-flowers-report .dir-coord-vacancy-column,
+  body.print-flowers-report .coord-ministry-group,
+  body.print-flowers-report .coord-role-list {
+    gap: 1px;
+  }
+
+  body.print-flowers-report .coord-role-list {
+    padding-left: 6px;
+  }
+
+  body.print-flowers-report .role-ministry-vacancy-breakdown {
+    margin: 2px 0 3px;
+    padding: 3px 4px;
+    border-width: 1px;
+    border-radius: 0;
+  }
+
+  body.print-flowers-report .role-ministry-vacancy-title {
+    margin-bottom: 2px;
+    font-size: 5.4pt;
+  }
+
+  body.print-flowers-report .role-ministry-vacancy-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 2px 5px;
+  }
+
+  body.print-flowers-report .role-ministry-vacancy-role {
+    font-size: 5.2pt;
+    line-height: 1.05;
+  }
+
+  body.print-flowers-report .role-ministry-vacancy-role strong {
+    margin-bottom: 1px;
+  }
+
+  body.print-flowers-report .flowers-leadership-breakdown {
+    gap: 2px;
+    padding: 0 5px 3px;
+  }
+
+  body.print-flowers-report .flowers-team-leadership {
+    gap: 2px;
+  }
+
+  body.print-flowers-report .flowers-team-table-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 3px;
+  }
+
+  body.print-flowers-report .flowers-team-leadership-heading {
+    gap: 6px;
+    padding-bottom: 2px;
+  }
+
+  body.print-flowers-report .flowers-team-leadership-heading span,
+  body.print-flowers-report .flowers-team-leadership-heading strong {
+    font-size: 5.3pt;
+  }
+
+  body.print-flowers-report .flowers-team-leadership-table {
+    border-width: 1px;
+    border-radius: 0;
+  }
+
+  body.print-flowers-report .flowers-team-row {
+    min-height: 10px;
+    grid-template-columns: minmax(48px, 1.05fr) repeat(3, minmax(24px, 0.48fr));
+    gap: 2px;
+    padding: 1px 2px;
+    font-size: 4.3pt;
+    line-height: 1.02;
+  }
+
+  body.print-flowers-report .flowers-team-head {
+    font-size: 4.1pt;
+  }
+
+  body.print-flowers-report .flowers-team-row > span:not(:first-child) {
+    min-width: 0;
+    padding: 0 2px;
+  }
+
+  body.print-flowers-report .flowers-leadership-role-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  body.print-flowers-report .flowers-leadership-role {
+    gap: 1px;
+    padding: 3px 4px;
+    border-width: 1px;
+    border-radius: 0;
+  }
+
+  body.print-flowers-report .flowers-leadership-role span,
+  body.print-flowers-report .flowers-understaffed-note span {
+    font-size: 5.2pt;
+  }
+
+  body.print-flowers-report .flowers-leadership-role strong {
+    font-size: 9.2pt;
+  }
+
+  body.print-flowers-report .flowers-leadership-role em {
+    font-size: 5pt;
+  }
+
+  body.print-flowers-report .flowers-leadership-track {
+    height: 3px;
+  }
+
+  body.print-flowers-report .flowers-understaffed-note {
+    gap: 3px 5px;
+    padding: 3px 4px;
+    border-width: 1px;
+    border-radius: 0;
+  }
+
+  body.print-flowers-report .flowers-understaffed-note strong {
+    font-size: 5.4pt;
+  }
+
+  body.print-flowers-report .flowers-director-roster-wrap {
+    padding: 0 5px 2px;
+  }
+
+  body.print-flowers-report .leadership-campus-heading {
+    padding-bottom: 1px;
+    font-size: 5pt;
+  }
+
+  body.print-flowers-report .flowers-director-roster {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1px;
+    margin-top: 1px;
+  }
+
+  body.print-flowers-report .director-roster-card {
+    padding: 2px 0 0;
+    border-width: 1px 0 0;
+  }
+
+  body.print-flowers-report .director-roster-card h3 {
+    margin-bottom: 1px;
+    font-size: 5.2pt;
+  }
+
+  body.print-flowers-report .director-roster-list {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0 10px;
+  }
+
+  body.print-flowers-report .director-roster-column {
+    gap: 0;
+  }
+
+  body.print-flowers-report .director-roster-item strong {
+    font-size: 5.3pt;
+    line-height: 1;
+  }
+
+  body.print-flowers-report .director-roster-item span {
+    font-size: 4.7pt;
+    line-height: 1;
+    white-space: nowrap;
+  }
 }
 
 @media (max-width: 1100px) {
@@ -2171,6 +3102,11 @@ tbody tr.active {
 
   .compact-kpis,
   .big-five-layout,
+  .flowers-kpi-grid,
+  .flowers-report-grid,
+  .flowers-lower-grid,
+  .flowers-leadership-role-grid,
+  .flowers-team-table-grid,
   .movement-summary,
   .attendance-insight-columns,
   .campus-health-insight-columns,
@@ -2219,7 +3155,8 @@ tbody tr.active {
   }
 
   .big-five-heading,
-  .health-heading {
+  .health-heading,
+  .flowers-report-heading {
     align-items: stretch;
     flex-direction: column;
   }
@@ -2244,6 +3181,16 @@ tbody tr.active {
 
   .dir-coord-vacancy-section.is-coordinator .dir-coord-vacancy-list {
     grid-template-columns: 1fr;
+  }
+
+  .flowers-summary-row,
+  .flowers-group-row,
+  .flowers-capacity-item {
+    grid-template-columns: 1fr;
+  }
+
+  .flowers-summary-head {
+    display: none;
   }
 
   .chart {

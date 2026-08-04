@@ -94,7 +94,7 @@ async function loadLiveWorkbook({ onData, onStatus, forceLogin }) {
     onStatus(`Reading ${driveItem.name || "workbook"}...`);
     const liveData = await readWorkbookData(token, driveItem);
     onData(liveData);
-    onStatus(`Live Excel connected: ${driveItem.name || "SharePoint workbook"}${liveDataHealthSummary(liveData)}`);
+    onStatus(`Live Excel connected: ${driveItem.name || "SharePoint workbook"}`);
   } catch (error) {
     console.error(error);
     onStatus(readableError(error), "error");
@@ -209,6 +209,10 @@ async function readWorkbookData(token, driveItem) {
     ["Dir-Coord Vacancies", "Dir Coord Vacancies", "Director Coordinator Vacancies"],
     "A1:Z1200",
   );
+  sheets["Team Lead Vacancies"] = await tryReadFirstRange(
+    ["Team Lead Vacancies", "Team Lead Vacancy", "Team Lead Openings", "TL Vacancies"],
+    "A1:Z1200",
+  );
   sheets["Director Roster"] = await tryReadFirstRange(
     ["Director Roster", "Directors", "Director Names", "Campus Directors", "Filled Directors", "Director Positions"],
     "A1:Z2000",
@@ -300,14 +304,6 @@ async function graphJson(token, path, options = {}) {
   }
 
   return response.status === 204 ? null : response.json();
-}
-
-function liveDataHealthSummary(liveData) {
-  const leadership = liveData?.health?.leadershipRows?.length;
-  const vacancies = liveData?.health?.dirCoordVacancies?.length;
-  const directors = liveData?.health?.directorRoster?.length;
-  if (leadership === undefined && vacancies === undefined && directors === undefined) return "";
-  return ` · ${leadership || 0} leadership rows · ${vacancies || 0} vacancy rows · ${directors || 0} director rows`;
 }
 
 function buildDashboardData(sheets, driveItem) {
@@ -817,6 +813,7 @@ function extractHealthData(sheets, metrics, latestDate, campuses = []) {
   const heartSoulRows = extractHeartSoulRows(sheets["Heart Soul Input"]);
   const leadershipRows = extractLeadershipRows(sheets["Leadership Input"]);
   const dirCoordVacancies = extractDirCoordVacancies(sheets["Dir-Coord Vacancies"], campuses);
+  const teamLeadVacancies = extractTeamLeadVacancies(sheets["Team Lead Vacancies"], campuses);
   const directorRoster = extractDirectorRoster(sheets["Director Roster"], campuses);
   const activeDreamTeam = extractActiveDreamTeam(sheets["Active Dream Team"], latestDate);
   const targets = extractHealthTargets(sheets["Health Targets"]);
@@ -828,6 +825,7 @@ function extractHealthData(sheets, metrics, latestDate, campuses = []) {
     heartSoulRows,
     leadershipRows,
     dirCoordVacancies,
+    teamLeadVacancies,
     directorRoster,
     activeDreamTeam,
     months: extractHealthMonths(
@@ -838,6 +836,7 @@ function extractHealthData(sheets, metrics, latestDate, campuses = []) {
       leadershipRows,
       activeDreamTeam,
       dirCoordVacancies,
+      teamLeadVacancies,
       directorRoster,
     ),
   };
@@ -1807,6 +1806,39 @@ function extractDirCoordVacancies(range, campuses = []) {
     .filter((row) => row.campus && row.roleLevel);
 }
 
+function extractTeamLeadVacancies(range, campuses = []) {
+  return tableRows(range, ["campus", "ministry"])
+    .map((row) => {
+      const filledCount = rowNumber(row, ["filled_count", "filled", "current_count", "current"]);
+      const neededCount = rowNumber(row, ["needed_count", "needed", "target_count", "target"]);
+      const enteredVacancyCount = rowNumber(row, [
+        "vacancy_count",
+        "vacancies",
+        "total_vacancies",
+        "total_vacancy_count",
+        "open_count",
+        "open",
+      ]);
+      const vacancyCount =
+        enteredVacancyCount ?? (neededCount !== null && filledCount !== null
+          ? Math.max(0, neededCount - filledCount)
+          : null);
+      return {
+        month: rowMonth(row, ["month", "report_month", "date"]),
+        campus: canonicalCampusName(rowText(row, ["campus"]), campuses),
+        ministry: rowText(row, ["ministry", "department"]),
+        vacancyCount,
+        vacantSince:
+          rowDate(row, ["vacant_since", "vacancy_since", "open_since", "date_vacant"]) ||
+          rowText(row, ["vacant_since", "vacancy_since", "open_since", "date_vacant"]),
+        filledDate:
+          rowDate(row, ["filled_date", "date_filled", "filled_on", "fill_date"]) ||
+          rowText(row, ["filled_date", "date_filled", "filled_on", "fill_date"]),
+      };
+    })
+    .filter((row) => row.campus && row.ministry && row.vacancyCount !== null && row.vacancyCount !== undefined);
+}
+
 function extractDirectorRoster(range, campuses = []) {
   return tableRows(range, ["campus"])
     .map((row) => {
@@ -1867,6 +1899,7 @@ function extractHealthMonths(
   leadershipRows,
   activeDreamTeam,
   dirCoordVacancies = [],
+  teamLeadVacancies = [],
   directorRoster = [],
 ) {
   const months = new Set();
@@ -1883,6 +1916,11 @@ function extractHealthMonths(
   for (const row of leadershipRows) months.add(row.month);
   for (const row of activeDreamTeam) months.add(row.month);
   for (const row of dirCoordVacancies) {
+    months.add(row.month);
+    months.add(monthKeyFromDateLike(row.vacantSince));
+    months.add(monthKeyFromDateLike(row.filledDate));
+  }
+  for (const row of teamLeadVacancies) {
     months.add(row.month);
     months.add(monthKeyFromDateLike(row.vacantSince));
     months.add(monthKeyFromDateLike(row.filledDate));

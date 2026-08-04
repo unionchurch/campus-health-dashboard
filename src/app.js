@@ -1,5 +1,5 @@
-import dashboardData from "./dashboard-data.js?v=20260625-director-vacant-since";
-import { setupLiveExcel } from "./live-excel.js?v=20260625-director-vacant-since";
+import dashboardData from "./dashboard-data.js?v=20260730-flowers-report";
+import { setupLiveExcel } from "./live-excel.js?v=20260730-flowers-report";
 
 let data = dashboardData;
 
@@ -23,6 +23,7 @@ const metricOrder = [
   "dreamTeam",
   "healthReport",
   "execHealthReport",
+  "flowersReport",
   "bigFive",
   "campusGrowthHistory",
 ];
@@ -244,42 +245,143 @@ const growthBarriers = [
   },
 ];
 
-const bigFiveGrowthGoals = [
-  { campus: "BWI", aliases: ["BWI"], preEasterAvg: 3756, easterTotal: 10374, growthGoal: 5741, barrier: "5K" },
+const whs2026Goals = [
+  {
+    campus: "BWI",
+    aliases: ["BWI"],
+    attendance2025: 5054,
+    floorGoal: 5300,
+    stretchGoal: 5600,
+    tenPctGoal: 5548,
+  },
   {
     campus: "Columbia",
     aliases: ["COL", "Columbia"],
-    preEasterAvg: 1358,
-    easterTotal: 3419,
-    growthGoal: 1976,
-    barrier: "1,500 - 2K",
+    attendance2025: 1953,
+    floorGoal: 1932,
+    stretchGoal: 2200,
+    tenPctGoal: 2148,
   },
-  { campus: "UBC", aliases: ["UBC"], preEasterAvg: 693, easterTotal: 1516, growthGoal: 940, barrier: "1K" },
   {
     campus: "Flowers",
     aliases: ["FLO", "Flowers"],
-    preEasterAvg: 929,
-    easterTotal: 1702,
-    growthGoal: 1161,
-    barrier: "1K - 1,500",
+    attendance2025: 1523,
+    floorGoal: 1315,
+    stretchGoal: 1500,
+    tenPctGoal: 1675,
   },
   {
     campus: "Falls Church",
     aliases: ["FC", "Falls Church"],
-    preEasterAvg: 554,
-    easterTotal: 1252,
-    growthGoal: 763,
-    barrier: "1K",
+    attendance2025: 748,
+    floorGoal: 780,
+    stretchGoal: 900,
+    tenPctGoal: 823,
+  },
+  {
+    campus: "Baltimore County",
+    aliases: ["UBC", "BC", "Baltimore County"],
+    attendance2025: 986,
+    floorGoal: 960,
+    stretchGoal: 1080,
+    tenPctGoal: 1085,
   },
   {
     campus: "Silver Spring",
     aliases: ["SS", "Silver Spring"],
-    preEasterAvg: 494,
-    easterTotal: 887,
-    growthGoal: 612,
-    barrier: "500 - 1K",
+    attendance2025: 834,
+    floorGoal: 701,
+    stretchGoal: 917,
+    tenPctGoal: 917,
+  },
+  {
+    campus: "North Meck",
+    aliases: ["NM", "North Meck", "North Mecklenburg"],
+    attendance2025: 4080,
+    floorGoal: 3979,
+    stretchGoal: 4400,
+    tenPctGoal: 4488,
+  },
+  {
+    campus: "Mint Hill",
+    aliases: ["MH", "Mint Hill"],
+    attendance2025: 979,
+    floorGoal: 944,
+    stretchGoal: 1077,
+    tenPctGoal: 1077,
   },
 ];
+
+const flowersReportCampus = "Flowers";
+
+const flowersReportSnapshot = {
+  sourceLabel: "Provided status notes",
+  attendanceYtdAvg: 812,
+  attendancePeriods: [
+    { label: "Jan-Mar", value: 849, note: "9 of 12 Sundays at 900+" },
+    { label: "Apr-Jun", value: 1007, note: "9 of 12 Sundays at 900+" },
+    { label: "July", value: 789, note: "0 of 4 Sundays at 900+" },
+  ],
+  kidsYtdAvg: 98,
+  kidsPeriods: [
+    { label: "Jan-Mar", value: 109 },
+    { label: "Apr-Jun", value: 130 },
+    { label: "July", value: 93 },
+  ],
+  growthTrackAvg: 13,
+  dreamTeamServingYtdAvg: 180,
+  dreamTeamServingPeriods: [
+    { label: "Jan-Mar", value: 170 },
+    { label: "Apr-Jun", value: 202 },
+    { label: "July", value: 132 },
+  ],
+  groups: [
+    { semester: "Spring", goal: 110, actual: 125 },
+    { semester: "Summer", goal: 77, actual: 94 },
+    { semester: "Fall", goal: 95, actual: null },
+  ],
+  capacity: [
+    { label: "Auditorium seating", value: 720, note: "Primary seating capacity" },
+    { label: "Parking lot", value: 400, note: "Spaces before street parking" },
+    { label: "Current parking context", value: "Limited", note: "Some spaces hindered by construction" },
+  ],
+};
+
+const flowersReportPeriods = [
+  { key: "janMar", label: "Jan-Mar", start: "2026-01-01", end: "2026-03-31" },
+  { key: "aprJun", label: "Apr-Jun", start: "2026-04-01", end: "2026-06-30" },
+  { key: "july", label: "July", start: "2026-07-01", end: "2026-07-31" },
+];
+
+const flowersLeadershipMetrics = [
+  { team: "Guest Experience", directorsNeeded: 1, directorsActual: 1 },
+  { team: "Parking", coordinatorsNeeded: 1, coordinatorsActual: 0, teamLeadsNeeded: 4, teamLeadsActual: 1 },
+  { team: "Greeters", coordinatorsNeeded: 1, coordinatorsActual: 1, teamLeadsNeeded: 4, teamLeadsActual: 4 },
+  { team: "Hosts", coordinatorsNeeded: 1, coordinatorsActual: 1, teamLeadsNeeded: 4, teamLeadsActual: 2 },
+  { team: "Prayer", coordinatorsNeeded: 1, coordinatorsActual: 1, teamLeadsNeeded: 4, teamLeadsActual: 5 },
+  { team: "Events", coordinatorsNeeded: 1, coordinatorsActual: 1, teamLeadsNeeded: 4, teamLeadsActual: 6 },
+  { team: "Safety", coordinatorsNeeded: 1, coordinatorsActual: 1, teamLeadsNeeded: 4, teamLeadsActual: 3 },
+  { team: "Stewardship", coordinatorsNeeded: 1, coordinatorsActual: 1, teamLeadsNeeded: 4, teamLeadsActual: 6 },
+  { team: "Next Steps", directorsNeeded: 1, directorsActual: 1 },
+  { team: "Next Steps Team", coordinatorsNeeded: 1, coordinatorsActual: 1, teamLeadsNeeded: 4, teamLeadsActual: 6 },
+  { team: "Connection", coordinatorsNeeded: 1, coordinatorsActual: 1, teamLeadsNeeded: 4, teamLeadsActual: 3 },
+  { team: "Kids", directorsNeeded: 1, directorsActual: 1, coordinatorsNeeded: 5, coordinatorsActual: 5, teamLeadsNeeded: 5, teamLeadsActual: 8 },
+  { team: "Students", directorsNeeded: 1, directorsActual: 1, coordinatorsNeeded: 3, coordinatorsActual: 3, teamLeadsNeeded: 4, teamLeadsActual: 0 },
+  { team: "Outreach", directorsNeeded: 1, directorsActual: 1, coordinatorsNeeded: 3, coordinatorsActual: 1, teamLeadsNeeded: 4, teamLeadsActual: 0 },
+  { team: "Groups", directorsNeeded: 1, directorsActual: 1 },
+  { team: "Men", coordinatorsNeeded: 1, coordinatorsActual: 1, teamLeadsNeeded: 3, teamLeadsActual: 1 },
+  { team: "Women", coordinatorsNeeded: 1, coordinatorsActual: 1, teamLeadsNeeded: 3, teamLeadsActual: 5 },
+  { team: "Marriage", coordinatorsNeeded: 2, coordinatorsActual: 2, teamLeadsNeeded: 3, teamLeadsActual: 2 },
+  { team: "Freedom", coordinatorsNeeded: 1, coordinatorsActual: 1, teamLeadsNeeded: 3, teamLeadsActual: 3 },
+  { team: "Finances", coordinatorsNeeded: 1, coordinatorsActual: 1, teamLeadsNeeded: 3, teamLeadsActual: 3 },
+  { team: "Prayer Groups", coordinatorsNeeded: 1, coordinatorsActual: 1, teamLeadsNeeded: 3, teamLeadsActual: 1 },
+  { team: "Lifestyle", coordinatorsNeeded: 1, coordinatorsActual: 2, teamLeadsNeeded: 3, teamLeadsActual: 7 },
+  { team: "Production", directorsNeeded: 1, directorsActual: 1, coordinatorsNeeded: 2, coordinatorsActual: 4, teamLeadsNeeded: 4, teamLeadsActual: 0 },
+  { team: "Worship/Band", directorsNeeded: 1, directorsActual: 0, coordinatorsNeeded: 2, coordinatorsActual: 2, teamLeadsNeeded: 0, teamLeadsActual: 1 },
+  { team: "Set-Up/Take Down", directorsNeeded: 1, directorsActual: 0, coordinatorsNeeded: 2, coordinatorsActual: 1, teamLeadsNeeded: 4, teamLeadsActual: 0 },
+];
+
+const flowersUnderstaffedTeams = ["Production", "SUTD", "Parking", "Stewardship"];
 
 const els = {
   latestDate: document.querySelector("#latestDate"),
@@ -351,6 +453,22 @@ const els = {
   execDirectorRosterWrap: document.querySelector("#execDirectorRosterWrap"),
   execDirectorRosterMeta: document.querySelector("#execDirectorRosterMeta"),
   execDirectorRoster: document.querySelector("#execDirectorRoster"),
+  flowersPrintButton: document.querySelector("#flowersPrintButton"),
+  flowersPrintTitle: document.querySelector("#flowersPrintTitle"),
+  flowersPrintMeta: document.querySelector("#flowersPrintMeta"),
+  flowersReportMeta: document.querySelector("#flowersReportMeta"),
+  flowersKpis: document.querySelector("#flowersKpis"),
+  flowersTrendSummary: document.querySelector("#flowersTrendSummary"),
+  flowersGroupsTable: document.querySelector("#flowersGroupsTable"),
+  flowersCapacityGrid: document.querySelector("#flowersCapacityGrid"),
+  flowersGrowthHistoryMeta: document.querySelector("#flowersGrowthHistoryMeta"),
+  flowersGrowthHistoryChart: document.querySelector("#flowersGrowthHistoryChart"),
+  flowersLeadershipChart: document.querySelector("#flowersLeadershipChart"),
+  flowersLeadershipMeta: document.querySelector("#flowersLeadershipMeta"),
+  flowersLeadershipBreakdown: document.querySelector("#flowersLeadershipBreakdown"),
+  flowersDirectorRosterWrap: document.querySelector("#flowersDirectorRosterWrap"),
+  flowersDirectorRosterMeta: document.querySelector("#flowersDirectorRosterMeta"),
+  flowersDirectorRoster: document.querySelector("#flowersDirectorRoster"),
   leadershipVacancyChart: document.querySelector("#leadershipVacancyChart"),
   leadershipVacancyMeta: document.querySelector("#leadershipVacancyMeta"),
   leadershipCampusSnapshotWrap: document.querySelector("#leadershipCampusSnapshotWrap"),
@@ -381,6 +499,8 @@ function getMetricLabels() {
         ? "Monthly Health Report"
         : key === "execHealthReport"
           ? "Exec Monthly Health Report"
+        : key === "flowersReport"
+          ? "Flowers Report"
         : key === "bigFive"
           ? "Big 5"
           : key === "campusGrowthHistory"
@@ -492,9 +612,14 @@ function isMultiWeekBigFiveEvent() {
   return eventText.includes("relationshipseries") || eventText.includes("atthemovies");
 }
 
+function isWelcomeHomeSundayEvent() {
+  const eventText = normalizeText(`${state.bigFiveEvent} ${bigFiveEventLabel()}`);
+  return eventText.includes("welcomehomesunday") || eventText === "whs" || eventText.includes("whs");
+}
+
 function isGoalBigFiveEvent() {
   const eventText = normalizeText(`${state.bigFiveEvent} ${bigFiveEventLabel()}`);
-  return eventText.includes("welcomehomesunday") || eventText.includes("christmas") || eventText.includes("eoy");
+  return isWelcomeHomeSundayEvent() || eventText.includes("christmas") || eventText.includes("eoy");
 }
 
 function growthBarrierForAttendance(value) {
@@ -502,10 +627,22 @@ function growthBarrierForAttendance(value) {
   return growthBarriers.find((barrier) => value < barrier.max) || growthBarriers.at(-1);
 }
 
-function goalRowsForCampus(campus) {
-  if (campus === "All Campuses") return bigFiveGrowthGoals;
+function whsGoalRowsForCampus(campus) {
+  if (campus === "All Campuses") return whs2026Goals;
   const normalized = normalizeText(campus);
-  return bigFiveGrowthGoals.filter((goal) => goal.aliases.some((alias) => normalizeText(alias) === normalized));
+  return whs2026Goals.filter((goal) => goal.aliases.some((alias) => normalizeText(alias) === normalized));
+}
+
+function whsGoalSummary(campus = state.campus) {
+  const rows = whsGoalRowsForCampus(campus);
+  if (!rows.length) return null;
+  return {
+    rows,
+    attendance2025: sumNumbers(rows.map((row) => row.attendance2025)),
+    floorGoal: sumNumbers(rows.map((row) => row.floorGoal)),
+    stretchGoal: sumNumbers(rows.map((row) => row.stretchGoal)),
+    tenPctGoal: sumNumbers(rows.map((row) => row.tenPctGoal)),
+  };
 }
 
 function defaultBigFiveEvent() {
@@ -569,6 +706,7 @@ function setupControls() {
   });
   els.healthPrintButton?.addEventListener("click", printHealthReport);
   els.execHealthPrintButton?.addEventListener("click", printExecHealthReport);
+  els.flowersPrintButton?.addEventListener("click", printFlowersReport);
 
   liveExcel = setupLiveExcel({
     onData: applyDashboardData,
@@ -1296,7 +1434,7 @@ function pointChangeSummary(point, index, points) {
   };
 }
 
-function renderLineChart(points) {
+function renderLineChart(points, options = {}) {
   if (!points.length) {
     els.lineChart.innerHTML = `<div class="empty">No points available.</div>`;
     return;
@@ -1307,20 +1445,52 @@ function renderLineChart(points) {
   const margin = { top: 22, right: 28, bottom: 48, left: 58 };
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
-  const values = points.map((point) => point.value);
+  const comparisonPoints = options.comparisonPoints || [];
+  const comparisonByDate = new Map(comparisonPoints.map((point) => [point.date, point]));
+  const pointIndexByDate = new Map(points.map((point, index) => [point.date, index]));
+  const useDateScale = options.xScale === "date";
+  const comparisonPathPoints = useDateScale
+    ? comparisonPoints
+    : comparisonPoints.filter((point) => pointIndexByDate.has(point.date));
+  const values = [
+    ...points.map((point) => point.value),
+    ...comparisonPathPoints.map((point) => point.value),
+  ];
   const maxValue = Math.max(...values);
   const minValue = Math.min(...values);
   const yMin = Math.max(0, minValue - (maxValue - minValue) * 0.25);
   const yMax = maxValue + Math.max(10, (maxValue - minValue) * 0.18);
   const x = (index) =>
     margin.left + (points.length === 1 ? innerWidth / 2 : (index / (points.length - 1)) * innerWidth);
+  const domainStart = options.xDomainStart ? parseIsoDate(options.xDomainStart) : parseIsoDate(points[0].date);
+  const domainEnd = options.xDomainEnd ? parseIsoDate(options.xDomainEnd) : parseIsoDate(points.at(-1).date);
+  const domainSpan = Math.max(1, domainEnd - domainStart);
+  const xDate = (date) =>
+    margin.left + ((parseIsoDate(date) - domainStart) / domainSpan) * innerWidth;
+  const xPoint = (point, index) => (useDateScale ? xDate(point.date) : x(index));
+  const xComparisonPoint = (point) =>
+    useDateScale ? xDate(point.date) : x(pointIndexByDate.get(point.date));
   const y = (value) => margin.top + ((yMax - value) / (yMax - yMin)) * innerHeight;
-  const linePath = points.map((point, index) => `${index === 0 ? "M" : "L"} ${x(index)} ${y(point.value)}`).join(" ");
-  const areaPath = `${linePath} L ${x(points.length - 1)} ${margin.top + innerHeight} L ${x(0)} ${
+  const linePath = points.map((point, index) => `${index === 0 ? "M" : "L"} ${xPoint(point, index)} ${y(point.value)}`).join(" ");
+  const comparisonPath = comparisonPathPoints
+    .map((point, index) => {
+      return `${index === 0 ? "M" : "L"} ${xComparisonPoint(point)} ${y(point.value)}`;
+    })
+    .join(" ");
+  const areaPath = `${linePath} L ${xPoint(points.at(-1), points.length - 1)} ${margin.top + innerHeight} L ${xPoint(points[0], 0)} ${
     margin.top + innerHeight
   } Z`;
   const gridValues = Array.from({ length: 5 }, (_, index) => yMin + ((yMax - yMin) / 4) * index);
   const labelIndexes = new Set([0, Math.floor((points.length - 1) / 2), points.length - 1]);
+  const axisDateLabels = useDateScale
+    ? [
+        { date: options.xDomainStart, label: "Jan" },
+        { date: `${String(parseIsoDate(options.xDomainStart).getFullYear())}-04-01`, label: "Apr" },
+        { date: `${String(parseIsoDate(options.xDomainStart).getFullYear())}-07-01`, label: "Jul" },
+        { date: `${String(parseIsoDate(options.xDomainStart).getFullYear())}-10-01`, label: "Oct" },
+        { date: options.xDomainEnd, label: "Dec" },
+      ]
+    : [];
   const tooltipWidth = 250;
 
   const svg = `
@@ -1334,19 +1504,34 @@ function renderLineChart(points) {
           `;
         })
         .join("")}
+      ${
+        comparisonPath
+          ? `
+            <g class="chart-legend" aria-hidden="true">
+              <line class="legend-line current" x1="${width - margin.right - 168}" y1="18" x2="${width - margin.right - 138}" y2="18"></line>
+              <text x="${width - margin.right - 132}" y="22">${escapeHtml(options.currentLabel || "Current")}</text>
+              <line class="legend-line prior" x1="${width - margin.right - 78}" y1="18" x2="${width - margin.right - 48}" y2="18"></line>
+              <text x="${width - margin.right - 42}" y="22">${escapeHtml(options.comparisonLabel || "2025")}</text>
+            </g>
+          `
+          : ""
+      }
       <path class="series-area" d="${areaPath}"></path>
+      ${comparisonPath ? `<path class="series-line comparison-line" d="${comparisonPath}"></path>` : ""}
       <path class="series-line" d="${linePath}"></path>
       ${points
         .map((point, index) => {
           const noteLines = [...chartNoteLines(point.event), ...chartContextLines(point, index, points)].slice(0, 4);
           const pointChange = pointChangeSummary(point, index, points);
+          const comparisonPoint = comparisonByDate.get(point.date);
           const hasNote = noteLines.length > 0;
           const isEvent = hasNote || point.eventType !== "normal";
-          const cx = x(index);
+          const cx = xPoint(point, index);
           const cy = y(point.value);
-          const tooltipHeight = hasNote ? 50 + noteLines.length * 14 : 50;
+          const tooltipHeight = 50 + (comparisonPoint ? 14 : 0) + noteLines.length * 14;
           const tooltipX = Math.min(Math.max(cx - tooltipWidth / 2, margin.left - 24), width - margin.right - tooltipWidth + 24);
           const tooltipY = Math.max(cy - tooltipHeight - 18, margin.top - 10);
+          const noteStartY = comparisonPoint ? 72 : 58;
           return `
             <g class="chart-point-tooltip" data-tooltip-index="${index}" transform="translate(${tooltipX} ${tooltipY})">
               <rect width="${tooltipWidth}" height="${tooltipHeight}" rx="7"></rect>
@@ -1359,10 +1544,19 @@ function renderLineChart(points) {
                     : ""
                 }
               </text>
+              ${
+                comparisonPoint
+                  ? `<text class="tooltip-note comparison-note" x="12" y="58">${escapeHtml(
+                      `${options.comparisonLabel || "2025"}: ${formatNumber(comparisonPoint.value)} (${shortDate(
+                        comparisonPoint.sourceDate,
+                      )})`,
+                    )}</text>`
+                  : ""
+              }
               ${noteLines
                 .map(
                   (line, lineIndex) =>
-                    `<text class="tooltip-note" x="12" y="${58 + lineIndex * 14}">${escapeHtml(line)}</text>`,
+                    `<text class="tooltip-note" x="12" y="${noteStartY + lineIndex * 14}">${escapeHtml(line)}</text>`,
                 )
                 .join("")}
             </g>
@@ -1382,11 +1576,19 @@ function renderLineChart(points) {
         .join("")}
       ${points
         .map((point, index) =>
-          labelIndexes.has(index)
+          !useDateScale && labelIndexes.has(index)
             ? `<text class="axis-label" x="${x(index)}" y="${height - 14}" text-anchor="${
                 index === 0 ? "start" : index === points.length - 1 ? "end" : "middle"
               }">${shortDate(point.date)}</text>`
             : "",
+        )
+        .join("")}
+      ${axisDateLabels
+        .map(
+          (tick, index) =>
+            `<text class="axis-label" x="${xDate(tick.date)}" y="${height - 14}" text-anchor="${
+              index === 0 ? "start" : index === axisDateLabels.length - 1 ? "end" : "middle"
+            }">${tick.label}</text>`,
         )
         .join("")}
     </svg>
@@ -2506,6 +2708,58 @@ function nearestPriorAttendance(date, campuses) {
   if (!bestDate || bestDistance > maxDistance) return null;
   const value = historyValueOnDate(history, campuses, bestDate);
   return value === null ? null : { date: bestDate, value };
+}
+
+function addDaysToIso(iso, days) {
+  const date = parseIsoDate(iso);
+  date.setDate(date.getDate() + days);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function attendanceFullPriorYearComparisonPoints(campuses) {
+  const history = data.history?.attendance2025 || {};
+  const byDate = new Map();
+  for (const campus of campuses) {
+    for (const point of history[campus] || []) {
+      if (!point.isSunday || point.value <= 0) continue;
+      if (!state.showEvents && point.eventType !== "normal") continue;
+      if (!byDate.has(point.date)) {
+        byDate.set(point.date, {
+          sourceDate: point.date,
+          date: addDaysToIso(point.date, 364),
+          value: 0,
+        });
+      }
+      byDate.get(point.date).value += point.value;
+    }
+  }
+  return Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function attendanceMatchedPriorYearComparisonPoints(points, campuses) {
+  if (state.metric !== "attendance") return [];
+  return points
+    .map((point) => {
+      const prior = nearestPriorAttendance(point.date, campuses);
+      if (!prior || !isFiniteNumber(prior.value)) return null;
+      return {
+        date: point.date,
+        value: prior.value,
+        sourceDate: prior.date,
+      };
+    })
+    .filter(Boolean);
+}
+
+function attendancePriorYearComparisonPoints(points, campuses, options = {}) {
+  if (options.fullYear) {
+    const fullYearPoints = attendanceFullPriorYearComparisonPoints(campuses);
+    if (fullYearPoints.length) return fullYearPoints;
+  }
+  return attendanceMatchedPriorYearComparisonPoints(points, campuses);
 }
 
 function weeklyPercentOfAttendance(metricKey, date, campuses) {
@@ -3989,6 +4243,94 @@ function dirCoordVacancyRowsFor(campus, roleLevel, month) {
     );
 }
 
+function teamLeadVacancyVisibleInMonth(row, month) {
+  if (!month) return true;
+  const filledMonth = monthKeyFromDateLike(row.filledDate);
+  const vacantMonth = monthKeyFromDateLike(row.vacantSince);
+  if (filledMonth && month >= filledMonth) return false;
+  if (vacantMonth) return month >= vacantMonth;
+  if (row.month) return row.month === month;
+  return true;
+}
+
+function vacancyCountForRow(row) {
+  if (isFiniteNumber(row.vacancyCount)) return row.vacancyCount;
+  if (isFiniteNumber(row.neededCount) && isFiniteNumber(row.filledCount)) {
+    return Math.max(0, row.neededCount - row.filledCount);
+  }
+  return null;
+}
+
+function roleMinistryVacancyRowsFor(campuses, month, roleLevel) {
+  const role = String(roleLevel || "").toLowerCase();
+  const rows =
+    role === "team lead"
+      ? (data.health?.teamLeadVacancies || []).filter(
+          (row) => campuses.includes(row.campus) && teamLeadVacancyVisibleInMonth(row, month),
+        )
+      : dirCoordRowsForLeadershipTotals(
+          (data.health?.dirCoordVacancies || []).filter(
+            (row) =>
+              String(row.roleLevel || "").toLowerCase() === role &&
+              campuses.includes(row.campus) &&
+              dirCoordVacancyVisibleInMonth(row, month),
+          ),
+          roleLevel,
+        );
+
+  const grouped = new Map();
+  for (const row of rows) {
+    const vacancies = vacancyCountForRow(row);
+    if (!isFiniteNumber(vacancies) || vacancies <= 0) continue;
+    const ministry = row.ministry || "No ministry listed";
+    if (!grouped.has(ministry)) grouped.set(ministry, { ministry, vacancies: 0 });
+    grouped.get(ministry).vacancies += vacancies;
+  }
+
+  return Array.from(grouped.values()).sort(
+    (a, b) => b.vacancies - a.vacancies || String(a.ministry || "").localeCompare(String(b.ministry || "")),
+  );
+}
+
+function renderRoleMinistryVacancyBreakdown(report, options = {}) {
+  const roles = options.roleMinistryBreakdownRoles || (options.showRoleMinistryBreakdown ? leadershipRoleOrder : []);
+  if (!roles.length) return "";
+  const campuses = report.campuses?.length ? report.campuses : selectedHealthCampuses();
+  const roleGroups = roles.map((role) => ({
+    role,
+    rows: roleMinistryVacancyRowsFor(campuses, report.month, role),
+  }));
+  if (!roleGroups.some((group) => group.rows.length)) return "";
+
+  return `
+    <div class="role-ministry-vacancy-breakdown${roles.length === 1 ? " is-single" : ""}">
+      <div class="role-ministry-vacancy-title">${
+        roles.length === 1 ? `${escapeHtml(roles[0])} Vacancies by Department` : "Vacancies by Department"
+      }</div>
+      <div class="role-ministry-vacancy-grid">
+        ${roleGroups
+          .map(
+            (group) => `
+              <div class="role-ministry-vacancy-role">
+                <strong>${escapeHtml(group.role)}</strong>
+                <span>
+                  ${
+                    group.rows.length
+                      ? group.rows
+                          .map((row) => `${escapeHtml(row.ministry)}: ${formatNumber(row.vacancies)}`)
+                          .join(" · ")
+                      : "None listed"
+                  }
+                </span>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+    </div>
+  `;
+}
+
 function directorRosterVisibleInMonth(row, month) {
   if (!month) return true;
   const vacantMonth = monthKeyFromDateLike(row.vacantSince);
@@ -4116,10 +4458,10 @@ function dirCoordVacancyColumns(rows, roleLevel) {
   ).filter((column) => column.length);
 }
 
-function renderDirCoordVacancyDetails(report) {
-  if (state.campus === "All Campuses") return "";
+function renderDirCoordVacancyDetails(report, campusOverride = state.campus) {
+  if (campusOverride === "All Campuses") return "";
   const sections = ["Director", "Coordinator"].map((roleLevel) => {
-    const rows = dirCoordVacancyRowsFor(state.campus, roleLevel, report.month);
+    const rows = dirCoordVacancyRowsFor(campusOverride, roleLevel, report.month);
     const sectionClass = roleLevel.toLowerCase();
     return `
       <section class="dir-coord-vacancy-section is-${sectionClass}">
@@ -4171,7 +4513,8 @@ function renderLeadershipVacancyChart(report, targets = {}) {
   if (!hasData) {
     chart.innerHTML = `
       <div class="empty">Leadership target and filled counts will appear here.</div>
-      ${renderDirCoordVacancyDetails(report)}
+      ${renderDirCoordVacancyDetails(report, targets.campusOverride)}
+      ${renderRoleMinistryVacancyBreakdown(report, targets)}
     `;
     return;
   }
@@ -4197,7 +4540,8 @@ function renderLeadershipVacancyChart(report, targets = {}) {
         `;
       })
       .join("")}
-    ${renderDirCoordVacancyDetails(report)}
+    ${renderDirCoordVacancyDetails(report, targets.campusOverride)}
+    ${renderRoleMinistryVacancyBreakdown(report, targets)}
   `;
 }
 
@@ -4297,7 +4641,7 @@ function renderDirectorRoster(report, targets = {}) {
   const roster = targets.roster || els.directorRoster;
   const meta = targets.meta || els.directorRosterMeta;
   if (!wrap || !roster || !meta) return;
-  const showRoster = state.campus !== "All Campuses";
+  const showRoster = targets.forceShow || state.campus !== "All Campuses";
   wrap.classList.toggle("is-hidden", !showRoster);
   if (!showRoster) {
     meta.textContent = "";
@@ -4306,7 +4650,8 @@ function renderDirectorRoster(report, targets = {}) {
   }
 
   const campuses = report.campuses?.length ? report.campuses : selectedHealthCampuses();
-  const rows = directorRosterRowsFor(campuses, report.month);
+  const excludedNames = new Set((targets.excludeNames || []).map(normalizeText));
+  const rows = directorRosterRowsFor(campuses, report.month).filter((row) => !excludedNames.has(normalizeText(row.name)));
   const hasAnyRosterData = (data.health?.directorRoster || []).length > 0;
 
   meta.textContent = rows.length
@@ -4393,6 +4738,8 @@ function renderExecHealth() {
   renderLeadershipVacancyChart(report, {
     chart: els.execLeadershipVacancyChart,
     meta: els.execLeadershipVacancyMeta,
+    roleMinistryBreakdownRoles:
+      state.campus === "All Campuses" ? leadershipRoleOrder : ["Team Lead"],
   });
   renderCampusVacancySnapshot(report, {
     wrap: els.execLeadershipCampusSnapshotWrap,
@@ -4404,6 +4751,445 @@ function renderExecHealth() {
     meta: els.execDirectorRosterMeta,
     roster: els.execDirectorRoster,
   });
+}
+
+function maxMetricDateForCampus(metricKey, campus) {
+  return (data.metrics?.[metricKey]?.series?.[campus] || [])
+    .filter((point) => point.isSunday && isFiniteNumber(point.value) && point.value > 0)
+    .map((point) => point.date)
+    .sort()
+    .at(-1);
+}
+
+function flowersMetricPeriodSummary(metricKey, period, fallback = {}) {
+  const points = (data.metrics?.[metricKey]?.series?.[flowersReportCampus] || []).filter(
+    (point) =>
+      point.isSunday &&
+      point.date >= period.start &&
+      point.date <= period.end &&
+      isFiniteNumber(point.value) &&
+      point.value > 0,
+  );
+  if (!points.length) return { label: period.label, value: fallback.value ?? null, note: fallback.note || "", weeks: 0 };
+  const value = averageNumbers(points.map((point) => point.value));
+  const note =
+    metricKey === "attendance"
+      ? `${formatNumber(points.filter((point) => point.value >= 900).length)} of ${formatNumber(
+          points.length,
+        )} Sundays at 900+`
+      : "";
+  return { label: period.label, value, note, weeks: points.length };
+}
+
+function flowersMetricYtdAverage(metricKey) {
+  const latestDate = data.source?.latestAttendanceDate || maxMetricDateForCampus(metricKey, flowersReportCampus);
+  const year = Number(latestDate?.slice(0, 4)) || 2026;
+  const start = `${year}-01-01`;
+  const points = (data.metrics?.[metricKey]?.series?.[flowersReportCampus] || []).filter(
+    (point) =>
+      point.isSunday &&
+      point.date >= start &&
+      (!latestDate || point.date <= latestDate) &&
+      isFiniteNumber(point.value) &&
+      point.value > 0,
+  );
+  return averageNumbers(points.map((point) => point.value));
+}
+
+function liveFlowersMetricAvailable(metricKey) {
+  return (data.metrics?.[metricKey]?.series?.[flowersReportCampus] || []).some(
+    (point) => point.isSunday && isFiniteNumber(point.value),
+  );
+}
+
+function flowersReportData() {
+  const hasLiveMetrics =
+    liveFlowersMetricAvailable("attendance") ||
+    liveFlowersMetricAvailable("kids") ||
+    liveFlowersMetricAvailable("dreamTeam");
+  if (!hasLiveMetrics) return flowersReportSnapshot;
+
+  return {
+    ...flowersReportSnapshot,
+    sourceLabel: "Live Excel",
+    attendanceYtdAvg: flowersMetricYtdAverage("attendance") ?? flowersReportSnapshot.attendanceYtdAvg,
+    attendancePeriods: flowersReportPeriods.map((period, index) =>
+      flowersMetricPeriodSummary("attendance", period, flowersReportSnapshot.attendancePeriods[index]),
+    ),
+    kidsYtdAvg: flowersMetricYtdAverage("kids") ?? flowersReportSnapshot.kidsYtdAvg,
+    kidsPeriods: flowersReportPeriods.map((period, index) =>
+      flowersMetricPeriodSummary("kids", period, flowersReportSnapshot.kidsPeriods[index]),
+    ),
+    dreamTeamServingYtdAvg: flowersReportSnapshot.dreamTeamServingYtdAvg,
+    dreamTeamServingPeriods: flowersReportPeriods.map((period, index) =>
+      flowersMetricPeriodSummary("dreamTeam", period, flowersReportSnapshot.dreamTeamServingPeriods[index]),
+    ),
+  };
+}
+
+function formatFlowersValue(value) {
+  return isFiniteNumber(value) ? formatNumber(value) : escapeHtml(value || "--");
+}
+
+function flowersPeriodNote(period) {
+  return period?.note ? `<span>${escapeHtml(period.note)}</span>` : "";
+}
+
+function flowersTrendDelta(current, previous) {
+  const change = pctChange(current, previous);
+  if (change === null) return "--";
+  return `${formatSignedNumber(current - previous)} (${formatPct(change)})`;
+}
+
+function flowersTrendReadout(kind, current, previous) {
+  const change = pctChange(current, previous);
+  if (!isFiniteNumber(change)) return "Current trend needs more data.";
+  const direction = change >= 0 ? "up" : "down";
+  const magnitude = Math.abs(change);
+  if (kind === "Attendance") {
+    return magnitude >= 15
+      ? `July is ${direction} sharply from the Apr-Jun pace.`
+      : `July is ${direction} from the Apr-Jun pace.`;
+  }
+  if (kind === "Kids") {
+    return magnitude >= 15
+      ? `Kids attendance is moving ${direction} faster than the overall July attendance trend.`
+      : `Kids attendance is moving ${direction} with the broader campus trend.`;
+  }
+  return magnitude >= 15
+    ? `Serving is ${direction} meaningfully from the Apr-Jun average.`
+    : `Serving is ${direction} from the Apr-Jun average.`;
+}
+
+function renderFlowersKpis(snapshot = flowersReportData()) {
+  if (!els.flowersKpis) return;
+  const spring = snapshot.groups.find((group) => group.semester === "Spring");
+  const summer = snapshot.groups.find((group) => group.semester === "Summer");
+  const springPct = spring?.actual && spring?.goal ? (spring.actual / spring.goal) * 100 : null;
+  const summerPct = summer?.actual && summer?.goal ? (summer.actual / summer.goal) * 100 : null;
+  const groupsAverage = averageNumbers([springPct, summerPct]);
+  const julyAttendanceChange = pctChange(snapshot.attendancePeriods[2]?.value, snapshot.attendancePeriods[1]?.value);
+  const kpis = [
+    {
+      label: "Attendance Avg YTD",
+      value: formatNumber(snapshot.attendanceYtdAvg),
+      note: "Average attendance",
+    },
+    {
+      label: "Apr-Jun Attendance",
+      value: formatNumber(snapshot.attendancePeriods[1]?.value),
+      note: "",
+    },
+    {
+      label: "July Attendance",
+      value: formatNumber(snapshot.attendancePeriods[2]?.value),
+      note: `${formatPct(julyAttendanceChange)} vs Apr-Jun`,
+      valueClass: toneClass(julyAttendanceChange),
+    },
+    {
+      label: "Kids Avg YTD",
+      value: formatNumber(snapshot.kidsYtdAvg),
+      note: "Average attendance",
+    },
+    {
+      label: "Growth Track Avg",
+      value: formatNumber(snapshot.growthTrackAvg),
+      note: "Average attendance",
+    },
+    {
+      label: "Groups Above Goal",
+      value: groupsAverage === null ? "--" : formatPct(groupsAverage - 100),
+      note: "Spring and summer average over goal",
+      valueClass: "positive",
+    },
+  ];
+
+  els.flowersKpis.innerHTML = kpis
+    .map(
+      (kpi) => `
+        <article class="kpi flowers-kpi">
+          <div class="kpi-label">${escapeHtml(kpi.label)}</div>
+          <div class="kpi-value ${kpi.valueClass || ""}">${kpi.value}</div>
+          <div class="kpi-note">${escapeHtml(kpi.note)}</div>
+        </article>
+      `,
+    )
+    .join("");
+}
+
+function renderFlowersTrendSummary(snapshot = flowersReportData()) {
+  if (!els.flowersTrendSummary) return;
+  const attendance = snapshot.attendancePeriods;
+  const kids = snapshot.kidsPeriods;
+  const serving = snapshot.dreamTeamServingPeriods;
+  const rows = [
+    {
+      label: "Attendance",
+      ytd: snapshot.attendanceYtdAvg,
+      janMar: attendance[0],
+      aprJun: attendance[1],
+      july: attendance[2],
+    },
+    {
+      label: "Kids",
+      ytd: snapshot.kidsYtdAvg,
+      janMar: kids[0],
+      aprJun: kids[1],
+      july: kids[2],
+    },
+    {
+      label: "Dream Team\nSunday Serving",
+      ytd: snapshot.dreamTeamServingYtdAvg,
+      janMar: serving[0],
+      aprJun: serving[1],
+      july: serving[2],
+    },
+  ];
+
+  els.flowersTrendSummary.innerHTML = `
+    <div class="flowers-summary-row flowers-summary-head">
+      <span>Metric</span>
+      <span>YTD</span>
+      <span>Jan-Mar</span>
+      <span>Apr-Jun</span>
+      <span>July</span>
+      <span>July vs Apr-Jun</span>
+    </div>
+    ${rows
+      .map(
+        (row) => `
+          <div class="flowers-summary-row">
+            <strong>${escapeHtml(row.label).replace(/\n/g, "<br>")}</strong>
+            <span>${formatFlowersValue(row.ytd)}</span>
+            <span>${formatNumber(row.janMar?.value)} ${flowersPeriodNote(row.janMar)}</span>
+            <span>${formatNumber(row.aprJun?.value)} ${flowersPeriodNote(row.aprJun)}</span>
+            <span>${formatNumber(row.july?.value)}</span>
+            <span class="${toneClass(pctChange(row.july?.value, row.aprJun?.value))}">
+              ${flowersTrendDelta(row.july?.value, row.aprJun?.value)}
+              <em>${escapeHtml(flowersTrendReadout(row.label, row.july?.value, row.aprJun?.value))}</em>
+            </span>
+          </div>
+        `,
+      )
+      .join("")}
+  `;
+}
+
+function renderFlowersGroups(snapshot = flowersReportData()) {
+  if (!els.flowersGroupsTable) return;
+  els.flowersGroupsTable.innerHTML = snapshot.groups
+    .map((group) => {
+      const pct = group.actual && group.goal ? (group.actual / group.goal) * 100 : null;
+      const label = group.actual ? `${formatNumber(group.goal)} / ${formatNumber(group.actual)}` : `${formatNumber(group.goal)} goal`;
+      const note =
+        pct === null
+          ? "Goal set"
+          : pct >= 100
+            ? `${formatPct(pct - 100)} over goal`
+            : `${formatPct(pct - 100)} below goal`;
+      return `
+        <div class="flowers-group-row">
+          <strong>${escapeHtml(group.semester)}</strong>
+          <span>${label}</span>
+          <em class="${pct === null ? "" : pct >= 100 ? "positive" : "negative"}">${escapeHtml(note)}</em>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function renderFlowersCapacity(snapshot = flowersReportData()) {
+  if (!els.flowersCapacityGrid) return;
+  const seating = snapshot.capacity[0]?.value;
+  const parking = snapshot.capacity[1]?.value;
+  const notes = [
+    {
+      label: "Auditorium Seating",
+      value: formatNumber(seating),
+      note: "Seats",
+    },
+    {
+      label: "Parking Spaces",
+      value: formatNumber(parking),
+      note: "Not including street parking; construction is limiting some spaces",
+    },
+  ];
+
+  els.flowersCapacityGrid.innerHTML = notes
+    .map(
+      (item) => `
+        <div class="flowers-capacity-item">
+          <span>${escapeHtml(item.label)}</span>
+          <strong>${escapeHtml(item.value)}</strong>
+          <em>${escapeHtml(item.note)}</em>
+        </div>
+      `,
+    )
+    .join("");
+}
+
+function renderFlowersGrowthHistory() {
+  if (!els.flowersGrowthHistoryChart || !els.flowersGrowthHistoryMeta) return;
+  const row = growthHistoryRowForCampus(flowersReportCampus);
+  const years = growthHistoryYears().filter((year) => year >= 2022 && year <= 2026);
+  els.flowersGrowthHistoryMeta.textContent = years.length ? `${years[0]}-${years.at(-1)}` : "";
+  if (!row || !years.length) {
+    els.flowersGrowthHistoryChart.innerHTML = `
+      <div class="empty">Campus growth history will appear once the live workbook data is available.</div>
+    `;
+    return;
+  }
+
+  renderBarList(
+    els.flowersGrowthHistoryChart,
+    years
+      .filter((year) => isFiniteNumber(row.yearly?.[year]))
+      .map((year) => ({
+        label: String(year),
+        value: row.yearly[year],
+        note: relevantGrowthHistoryNote(year, flowersReportCampus),
+      })),
+  );
+}
+
+function flowersLeadershipRoleTotal(actualKey, neededKey) {
+  return flowersLeadershipMetrics.reduce(
+    (total, row) => ({
+      actual: total.actual + (row[actualKey] || 0),
+      needed: total.needed + (row[neededKey] || 0),
+    }),
+    { actual: 0, needed: 0 },
+  );
+}
+
+function flowersLeadershipRatio(row, actualKey, neededKey) {
+  const actual = row[actualKey];
+  const needed = row[neededKey];
+  if (!isFiniteNumber(actual) && !isFiniteNumber(needed)) return "--";
+  return `${formatNumber(actual || 0)} / ${formatNumber(needed || 0)}`;
+}
+
+function flowersLeadershipCellClass(row, actualKey, neededKey) {
+  const actual = row[actualKey];
+  const needed = row[neededKey];
+  if (!isFiniteNumber(actual) && !isFiniteNumber(needed)) return "not-applicable";
+  if ((actual || 0) < (needed || 0)) return "needs-attention";
+  return "on-track";
+}
+
+function renderFlowersLeadershipBreakdown() {
+  if (!els.flowersLeadershipBreakdown) return;
+  const rows = [
+    { label: "Directors", ...flowersLeadershipRoleTotal("directorsActual", "directorsNeeded") },
+    { label: "Coordinators", ...flowersLeadershipRoleTotal("coordinatorsActual", "coordinatorsNeeded") },
+    { label: "Team Leads", ...flowersLeadershipRoleTotal("teamLeadsActual", "teamLeadsNeeded") },
+  ];
+  const splitIndex = Math.ceil(flowersLeadershipMetrics.length / 2);
+  const teamGroups = [flowersLeadershipMetrics.slice(0, splitIndex), flowersLeadershipMetrics.slice(splitIndex)];
+  const teamTable = (group, index) => `
+    <div class="flowers-team-leadership-table" role="table" aria-label="Flowers Dream Team leadership by team ${index + 1}">
+      <div class="flowers-team-row flowers-team-head" role="row">
+        <span role="columnheader">Team</span>
+        <span role="columnheader">Dir</span>
+        <span role="columnheader">Coord</span>
+        <span role="columnheader">TL</span>
+      </div>
+      ${group
+        .map(
+          (row) => `
+            <div class="flowers-team-row" role="row">
+              <strong role="cell">${escapeHtml(row.team)}</strong>
+              <span role="cell" class="${flowersLeadershipCellClass(row, "directorsActual", "directorsNeeded")}">
+                ${flowersLeadershipRatio(row, "directorsActual", "directorsNeeded")}
+              </span>
+              <span role="cell" class="${flowersLeadershipCellClass(row, "coordinatorsActual", "coordinatorsNeeded")}">
+                ${flowersLeadershipRatio(row, "coordinatorsActual", "coordinatorsNeeded")}
+              </span>
+              <span role="cell" class="${flowersLeadershipCellClass(row, "teamLeadsActual", "teamLeadsNeeded")}">
+                ${flowersLeadershipRatio(row, "teamLeadsActual", "teamLeadsNeeded")}
+              </span>
+            </div>
+          `,
+        )
+        .join("")}
+    </div>
+  `;
+  els.flowersLeadershipBreakdown.innerHTML = `
+    <div class="flowers-leadership-role-grid">
+      ${rows
+        .map((row) => {
+          const pct = row.needed ? (row.actual / row.needed) * 100 : null;
+          return `
+            <article class="flowers-leadership-role">
+              <span>${escapeHtml(row.label)}</span>
+              <strong>${formatNumber(row.actual)} / ${formatNumber(row.needed)}</strong>
+              <em>actual / needed</em>
+              <div class="flowers-leadership-track" aria-hidden="true">
+                <span style="width:${pct === null ? 0 : Math.min(100, Math.max(4, pct))}%"></span>
+              </div>
+            </article>
+          `;
+        })
+        .join("")}
+    </div>
+    <div class="flowers-understaffed-note">
+      <span>Teams that are understaffed</span>
+      <strong>${escapeHtml(flowersUnderstaffedTeams.slice(0, -1).join(", "))}, &amp; ${escapeHtml(
+        flowersUnderstaffedTeams.at(-1),
+      )}</strong>
+    </div>
+    <div class="flowers-team-leadership">
+      <div class="flowers-team-leadership-heading">
+        <span>Team Leadership Breakdown</span>
+        <strong>Actual / Needed</strong>
+      </div>
+      <div class="flowers-team-table-grid">
+        ${teamGroups.map(teamTable).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderFlowersLeadership(report) {
+  if (els.flowersLeadershipChart) {
+    els.flowersLeadershipChart.innerHTML = "";
+    els.flowersLeadershipChart.classList.add("is-hidden");
+  }
+  if (els.flowersLeadershipMeta) {
+    els.flowersLeadershipMeta.textContent = "Actual / needed";
+  }
+  renderFlowersLeadershipBreakdown();
+  renderDirectorRoster(report, {
+    wrap: els.flowersDirectorRosterWrap,
+    meta: els.flowersDirectorRosterMeta,
+    roster: els.flowersDirectorRoster,
+    forceShow: true,
+    excludeNames: ["Tim Turner"],
+  });
+}
+
+function renderFlowersPrintHeader(report) {
+  if (!els.flowersPrintTitle || !els.flowersPrintMeta) return;
+  els.flowersPrintTitle.textContent = "Flowers Current Status Report";
+  els.flowersPrintMeta.textContent = "";
+}
+
+function renderFlowersReport() {
+  syncHealthMonthOptions();
+  const report = buildHealthReport(selectedHealthMonth(), [flowersReportCampus]);
+  const snapshot = flowersReportData();
+  renderFlowersPrintHeader(report);
+  if (els.flowersReportMeta) {
+    const monthLabel = report.month ? healthMonthDisplay(report.month) : "Current month";
+    const latestLabel = data.source.latestAttendanceDate ? `Latest ${shortDate(data.source.latestAttendanceDate)}` : "";
+    els.flowersReportMeta.textContent = [snapshot.sourceLabel, monthLabel, latestLabel].filter(Boolean).join(" · ");
+  }
+  renderFlowersKpis(snapshot);
+  renderFlowersTrendSummary(snapshot);
+  renderFlowersGroups(snapshot);
+  renderFlowersCapacity(snapshot);
+  renderFlowersGrowthHistory();
+  renderFlowersLeadership(report);
 }
 
 function renderExecHealthPrintHeader(report) {
@@ -4446,6 +5232,17 @@ function printExecHealthReport() {
   }, 50);
 }
 
+function printFlowersReport() {
+  if (!isFlowersReportSelected()) return;
+  document.body.classList.add("print-flowers-report");
+  window.setTimeout(() => {
+    window.print();
+    window.setTimeout(() => {
+      document.body.classList.remove("print-flowers-report");
+    }, 250);
+  }, 50);
+}
+
 function growthHistoryRows() {
   return data.campusGrowthHistory?.rows || [];
 }
@@ -4468,12 +5265,12 @@ function campusAliasTerms(campus) {
   return aliases[campus] || [campus];
 }
 
-function growthHistoryRowForCampus() {
+function growthHistoryRowForCampus(campus = state.campus) {
   const rows = growthHistoryRows();
-  if (state.campus === "All Campuses") {
+  if (campus === "All Campuses") {
     return rows.find((row) => normalizeText(row.campus) === "total") || null;
   }
-  return rows.find((row) => normalizeText(row.campus) === normalizeText(state.campus)) || null;
+  return rows.find((row) => normalizeText(row.campus) === normalizeText(campus)) || null;
 }
 
 function relevantGrowthHistoryNote(year, campus = state.campus) {
@@ -4916,6 +5713,24 @@ function renderBigFiveKpis(records) {
     );
   }
 
+  if (isWelcomeHomeSundayEvent()) {
+    const goal = whsGoalSummary();
+    if (goal) {
+      kpis.push(
+        {
+          label: "2026 Floor Goal",
+          value: formatNumber(goal.floorGoal),
+          note: "5-week pre-Easter average + 40%",
+        },
+        {
+          label: "2026 Faith / Stretch Goal",
+          value: formatNumber(goal.stretchGoal),
+          note: `About 10% over 2025 WHS${goal.tenPctGoal ? ` (${formatNumber(goal.tenPctGoal)} marker)` : ""}`,
+        },
+      );
+    }
+  }
+
   els.bigFiveKpis.innerHTML = kpis
     .map(
       (kpi) => `
@@ -5174,33 +5989,33 @@ function renderBigFiveInsights(records) {
     });
   }
 
-  if (isGoalBigFiveEvent()) {
-    const goalRows = goalRowsForCampus(state.campus);
-    const goalPre = sumNumbers(goalRows.map((row) => row.preEasterAvg));
-    const goalEaster = sumNumbers(goalRows.map((row) => row.easterTotal));
-    const goalTarget = sumNumbers(goalRows.map((row) => row.growthGoal));
-    const goalIncrease = goalEaster !== null && goalPre !== null ? goalEaster - goalPre : null;
-    const currentMainSunday = latest.year === 2026 ? latest.featuredTotal : null;
-    const gap = currentMainSunday !== null && goalTarget !== null ? goalTarget - currentMainSunday : null;
-    const selectedGoal = state.campus === "All Campuses" ? null : goalRows[0];
+  if (isWelcomeHomeSundayEvent()) {
+    const goal = whsGoalSummary();
+    if (goal) {
+      const goalTarget = goal.stretchGoal ?? null;
+      const currentMainSunday = latest.year === 2026 ? latest.featuredTotal : null;
+      const gap = currentMainSunday !== null && goalTarget !== null ? goalTarget - currentMainSunday : null;
+      const selectedGoal = state.campus === "All Campuses" ? null : goal.rows[0];
+      const stretchLift = pctChange(goal.stretchGoal, goal.attendance2025);
 
-    insights.push({
-      title:
-        state.campus === "All Campuses"
-          ? `2026 ${bigFiveEventLabel()} goal: ${formatNumber(goalTarget)}`
-          : `${state.campus} 2026 goal: ${formatNumber(selectedGoal?.growthGoal)}`,
-      body:
-        state.campus === "All Campuses"
-          ? `The goal keeps 30% of the Easter increase: ${formatNumber(goalPre)} pre-Easter average to ${formatNumber(goalEaster)} Easter total, a ${formatNumber(goalIncrease)} increase. ${gap !== null ? `Current gap is ${formatNumber(Math.max(0, gap))}.` : "Use this as the target before the event lands in the data."}`
-          : `${state.campus} is aiming for ${formatNumber(selectedGoal?.growthGoal)} after averaging ${formatNumber(selectedGoal?.preEasterAvg)} pre-Easter and seeing ${formatNumber(selectedGoal?.easterTotal)} at Easter. Growth barrier: ${selectedGoal?.barrier}.`,
-      severity: gap !== null && gap > 0 ? "warning" : "info",
-    });
+      insights.push({
+        title:
+          state.campus === "All Campuses"
+            ? `2026 WHS faith/stretch goal: ${formatNumber(goal.stretchGoal)}`
+            : `${state.campus} 2026 WHS faith/stretch goal: ${formatNumber(selectedGoal?.stretchGoal)}`,
+        body:
+          state.campus === "All Campuses"
+            ? `The floor goal is ${formatNumber(goal.floorGoal)} based on the 5-week pre-Easter average + 40%. The faith/stretch goal is about ${formatHealthPct(stretchLift)} over 2025 WHS attendance (${formatNumber(goal.attendance2025)}). ${gap !== null ? `Current gap is ${formatNumber(Math.max(0, gap))}.` : "Use this as the target before WHS lands in the data."}`
+            : `${state.campus} has a floor goal of ${formatNumber(selectedGoal?.floorGoal)} and a faith/stretch goal of ${formatNumber(selectedGoal?.stretchGoal)}. 2025 WHS attendance was ${formatNumber(selectedGoal?.attendance2025)} and the 10% marker is ${formatNumber(selectedGoal?.tenPctGoal)}.`,
+        severity: gap !== null && gap > 0 ? "warning" : "info",
+      });
 
-    insights.push({
-      title: "Event readiness focus",
-      body: "Use the goal to check Sunday quality, staffing, communication, and next-step follow-up before the event.",
-      severity: "info",
-    });
+      insights.push({
+        title: "Event readiness focus",
+        body: "Use the floor and faith/stretch goals to check Sunday quality, staffing, compelling communication, guest follow-up, and next-step pathways before WHS.",
+        severity: "info",
+      });
+    }
   }
 
   if (recentRecords.length >= 2 && (avgLift !== null || avgRetention !== null)) {
@@ -5307,6 +6122,10 @@ function isExecHealthReportSelected() {
   return state.metric === "execHealthReport";
 }
 
+function isFlowersReportSelected() {
+  return state.metric === "flowersReport";
+}
+
 function isBigFiveSelected() {
   return state.metric === "bigFive";
 }
@@ -5316,12 +6135,19 @@ function isGrowthHistorySelected() {
 }
 
 function isStandardMetricSelected() {
-  return !isHealthReportSelected() && !isExecHealthReportSelected() && !isBigFiveSelected() && !isGrowthHistorySelected();
+  return (
+    !isHealthReportSelected() &&
+    !isExecHealthReportSelected() &&
+    !isFlowersReportSelected() &&
+    !isBigFiveSelected() &&
+    !isGrowthHistorySelected()
+  );
 }
 
 function renderMetricPanels() {
   const showHealth = isHealthReportSelected();
   const showExecHealth = isExecHealthReportSelected();
+  const showFlowersReport = isFlowersReportSelected();
   const showBigFive = isBigFiveSelected();
   const showGrowthHistory = isGrowthHistorySelected();
   const showStandard = isStandardMetricSelected();
@@ -5330,6 +6156,7 @@ function renderMetricPanels() {
     const visible =
       (mode === "health" && showHealth) ||
       (mode === "exec-health" && showExecHealth) ||
+      (mode === "flowers-report" && showFlowersReport) ||
       (mode === "big-five" && showBigFive) ||
       (mode === "growth-history" && showGrowthHistory) ||
       (mode === "standard" && showStandard);
@@ -5398,6 +6225,10 @@ function updateDashboard() {
     renderExecHealth();
     return;
   }
+  if (isFlowersReportSelected()) {
+    renderFlowersReport();
+    return;
+  }
   if (isBigFiveSelected()) {
     renderBigFive();
     return;
@@ -5417,7 +6248,19 @@ function updateDashboard() {
   renderTrendMeta(context);
 
   renderKpis(points);
-  renderLineChart(points);
+  const attendanceCampuses = state.campus === "All Campuses" ? data.campuses : [state.campus];
+  const attendanceComparisonPoints =
+    state.metric === "attendance" ? attendancePriorYearComparisonPoints(points, attendanceCampuses, { fullYear: true }) : [];
+  const currentYearLabel = points[0]?.date ? String(parseIsoDate(points[0].date).getFullYear()) : "Current";
+  const currentYear = points[0]?.date?.slice(0, 4);
+  renderLineChart(points, {
+    comparisonPoints: attendanceComparisonPoints,
+    currentLabel: currentYearLabel,
+    comparisonLabel: "2025",
+    xScale: state.metric === "attendance" ? "date" : "index",
+    xDomainStart: state.metric === "attendance" && currentYear ? `${currentYear}-01-01` : null,
+    xDomainEnd: state.metric === "attendance" && currentYear ? `${currentYear}-12-31` : null,
+  });
   renderBars();
   if (state.metric === "attendance") renderVolatility();
   renderInsights();

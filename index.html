@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Campus Health Dashboard</title>
-    <link rel="stylesheet" href="./styles.css?v=20260624-health-meta-export" />
+    <link rel="stylesheet" href="./styles.css?v=20260730-flowers-report" />
   </head>
   <body>
     <main class="shell">
@@ -262,6 +262,98 @@
         </section>
       </section>
 
+      <section class="flowers-report-mode metric-mode-panel is-hidden" data-metric-panel="flowers-report">
+        <div class="print-report-header" aria-hidden="true">
+          <p>Union Campus Metrics</p>
+          <h1 id="flowersPrintTitle">Flowers Report</h1>
+          <span id="flowersPrintMeta"></span>
+        </div>
+        <section class="panel flowers-report-panel">
+          <div class="panel-heading flowers-report-heading">
+            <div>
+              <span class="panel-kicker">Campus Status</span>
+              <h2>Flowers Report</h2>
+            </div>
+            <div class="health-header-actions">
+              <button id="flowersPrintButton" class="secondary-action health-print-button" type="button">
+                Export PDF
+              </button>
+              <span id="flowersReportMeta" class="panel-meta"></span>
+            </div>
+          </div>
+          <div id="flowersReportBody" class="flowers-report-body">
+            <div id="flowersKpis" class="flowers-kpi-grid" aria-label="Flowers status highlights"></div>
+            <div class="flowers-report-grid">
+              <section class="flowers-card">
+                <div class="flowers-card-heading">
+                  <span>Current Trend</span>
+                  <strong>Attendance, kids, and serving</strong>
+                </div>
+                <div id="flowersTrendSummary" class="flowers-summary-table"></div>
+              </section>
+              <section class="flowers-card">
+                <div class="flowers-card-heading">
+                  <span>2026 Groups</span>
+                  <strong>Goal / Actual</strong>
+                </div>
+                <div id="flowersGroupsTable" class="flowers-groups-table"></div>
+              </section>
+            </div>
+            <div class="flowers-report-grid flowers-lower-grid">
+              <section class="flowers-card">
+                <div class="flowers-card-heading">
+                  <span>Facility Snapshot</span>
+                  <strong>Facility facts</strong>
+                </div>
+                <div id="flowersCapacityGrid" class="flowers-capacity-grid"></div>
+              </section>
+              <figure class="flowers-card">
+                <figcaption class="flowers-card-heading">
+                  <span>Campus Growth History</span>
+                  <strong>Attendance by year</strong>
+                  <em id="flowersGrowthHistoryMeta"></em>
+                </figcaption>
+                <div
+                  id="flowersGrowthHistoryChart"
+                  class="chart chart-bars flowers-growth-chart"
+                  aria-label="Flowers attendance by year"
+                ></div>
+              </figure>
+            </div>
+          </div>
+        </section>
+        <section class="panel flowers-leadership-panel">
+          <div class="panel-heading flowers-report-heading">
+            <div>
+              <span class="panel-kicker">Leadership</span>
+              <h2>Flowers Leadership Snapshot</h2>
+            </div>
+            <span id="flowersLeadershipMeta" class="panel-meta"></span>
+          </div>
+          <div
+            id="flowersLeadershipChart"
+            class="chart chart-bars leadership-vacancy-chart flowers-leadership-chart"
+            aria-label="Flowers leadership vacancies by role chart"
+          ></div>
+          <div
+            id="flowersLeadershipBreakdown"
+            class="flowers-leadership-breakdown"
+            aria-label="Flowers leadership actual and needed breakdown"
+          ></div>
+          <div id="flowersDirectorRosterWrap" class="director-roster-wrap flowers-director-roster-wrap">
+            <div class="leadership-campus-heading">
+              <span>Filled director positions</span>
+              <span id="flowersDirectorRosterMeta"></span>
+            </div>
+            <div
+              id="flowersDirectorRoster"
+              class="director-roster flowers-director-roster"
+              aria-label="Flowers filled director positions"
+            ></div>
+          </div>
+        </section>
+      </section>
+
       <section class="panel big-five-panel metric-mode-panel is-hidden" data-metric-panel="big-five">
         <div class="panel-heading big-five-heading">
           <div>
@@ -379,6 +471,6 @@
       </section>
     </main>
     <script src="https://alcdn.msauth.net/browser/2.38.2/js/msal-browser.min.js"></script>
-    <script type="module" src="./src/app.js?v=20260625-director-vacant-since"></script>
+    <script type="module" src="./src/app.js?v=20260730-flowers-report"></script>
   </body>
 </html>
