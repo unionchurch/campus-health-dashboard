@@ -417,6 +417,18 @@ figcaption,
   stroke: #000000;
 }
 
+.point.axis-clamped {
+  fill: #000000;
+  stroke: var(--green);
+  stroke-width: 3.5;
+}
+
+.offscale-label {
+  fill: #000000;
+  font-size: 11px;
+  font-weight: 900;
+}
+
 .point.selected {
   fill: #000000;
   stroke: var(--green);
@@ -726,6 +738,7 @@ figcaption,
 }
 
 .big-five-panel,
+.clean-trend-panel,
 .growth-history-panel {
   margin-bottom: 14px;
 }
@@ -743,8 +756,35 @@ figcaption,
 }
 
 .big-five-heading,
+.clean-trend-heading,
 .growth-history-heading {
   align-items: center;
+}
+
+.clean-trend-kpis {
+  padding: 0 16px 8px;
+}
+
+.clean-trend-chart {
+  min-height: 420px;
+  padding-top: 0;
+}
+
+.clean-trend-line {
+  stroke: var(--green);
+  stroke-width: 4.5;
+}
+
+.clean-trend-divider {
+  stroke: #2a262b;
+  stroke-width: 2;
+  stroke-dasharray: 5 7;
+  opacity: 0.42;
+}
+
+.clean-trend-divider-label {
+  fill: #2a262b;
+  font-weight: 850;
 }
 
 .big-five-controls {
@@ -890,6 +930,113 @@ figcaption,
 .big-five-layout .chart {
   min-height: 260px;
   padding: 6px 14px 14px;
+}
+
+.big-five-service-panel {
+  display: grid;
+  gap: 12px;
+  margin: 0 16px 16px;
+  padding: 14px;
+  background: #ffffff;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+}
+
+.big-five-service-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  min-width: 0;
+}
+
+.big-five-service-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: 8px;
+}
+
+.big-five-service-card {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px;
+  background: var(--surface);
+  border: 2px solid var(--line);
+  border-radius: 8px;
+}
+
+.big-five-service-card.is-total {
+  border-top: 6px solid var(--green);
+}
+
+.big-five-service-card span {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 860;
+  text-transform: uppercase;
+}
+
+.big-five-service-card strong {
+  color: var(--ink-soft);
+  font-family: var(--display-font);
+  font-size: 1.35rem;
+  font-weight: 900;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.big-five-service-card em {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-style: normal;
+  font-weight: 720;
+  line-height: 1.2;
+}
+
+.big-five-service-empty {
+  grid-column: 1 / -1;
+  padding: 20px 12px;
+}
+
+.big-five-service-table-wrap {
+  overflow-x: auto;
+}
+
+.big-five-service-table {
+  min-width: 880px;
+  border: 2px solid var(--line);
+  background: var(--surface);
+}
+
+.big-five-service-table td:last-child {
+  text-align: left;
+}
+
+.service-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.service-chip {
+  display: inline-flex;
+  gap: 4px;
+  align-items: baseline;
+  min-height: 26px;
+  padding: 4px 7px;
+  color: var(--muted);
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 720;
+  white-space: nowrap;
+}
+
+.service-chip strong {
+  color: var(--ink-soft);
+  font-weight: 900;
 }
 
 .table-wrap.health-table-wrap {
@@ -2144,6 +2291,11 @@ tbody tr.active {
     margin: 0.24in 0.25in;
   }
 
+  @page exec-health-tight {
+    size: letter landscape;
+    margin: 0.18in 0.2in;
+  }
+
   body.print-health-report,
   body.print-health-report .shell {
     width: 100%;
@@ -2660,6 +2812,115 @@ tbody tr.active {
     height: 3px;
   }
 
+  body.print-exec-health-report.print-tight-exec-report,
+  body.print-exec-health-report.print-tight-exec-report .shell {
+    page: exec-health-tight;
+  }
+
+  body.print-exec-health-report.print-tight-exec-report .exec-health-mode {
+    gap: 2px;
+  }
+
+  body.print-exec-health-report.print-tight-exec-report .print-report-header {
+    margin-bottom: 3px;
+    padding-bottom: 3px;
+  }
+
+  body.print-exec-health-report.print-tight-exec-report .print-report-header h1 {
+    font-size: 15.5pt;
+  }
+
+  body.print-exec-health-report.print-tight-exec-report .panel-heading {
+    padding: 3px 5px 1px;
+  }
+
+  body.print-exec-health-report.print-tight-exec-report .table-wrap.health-table-wrap {
+    padding: 0 5px 3px;
+  }
+
+  body.print-exec-health-report.print-tight-exec-report .exec-health-report-table th,
+  body.print-exec-health-report.print-tight-exec-report .exec-health-report-table td {
+    padding: 1.5px 2px;
+    font-size: 5.8pt;
+    line-height: 1.04;
+  }
+
+  body.print-exec-health-report.print-tight-exec-report .leadership-vacancy-chart {
+    padding: 1px 5px 3px;
+  }
+
+  body.print-exec-health-report.print-tight-exec-report .leadership-row {
+    min-height: 24px;
+    margin-bottom: 2px;
+  }
+
+  body.print-exec-health-report.print-tight-exec-report .leadership-subtext {
+    font-size: 5.3pt;
+  }
+
+  body.print-exec-health-report.print-tight-exec-report .role-ministry-vacancy-breakdown {
+    margin: 0 0 2px;
+    padding: 3px 4px;
+  }
+
+  body.print-exec-health-report.print-tight-exec-report .role-ministry-vacancy-title {
+    margin-bottom: 1px;
+    font-size: 5.5pt;
+  }
+
+  body.print-exec-health-report.print-tight-exec-report .role-ministry-vacancy-role {
+    font-size: 5.3pt;
+  }
+
+  body.print-exec-health-report.print-tight-exec-report .dir-coord-vacancy-detail {
+    gap: 3px;
+    margin-top: 2px;
+  }
+
+  body.print-exec-health-report.print-tight-exec-report .dir-coord-vacancy-section,
+  body.print-exec-health-report.print-tight-exec-report .director-roster-card {
+    padding: 3px;
+  }
+
+  body.print-exec-health-report.print-tight-exec-report .dir-coord-vacancy-section h3,
+  body.print-exec-health-report.print-tight-exec-report .director-roster-card h3 {
+    margin-bottom: 2px;
+    font-size: 6pt;
+  }
+
+  body.print-exec-health-report.print-tight-exec-report .dir-coord-vacancy-item,
+  body.print-exec-health-report.print-tight-exec-report .coord-ministry-heading,
+  body.print-exec-health-report.print-tight-exec-report .coord-role-item {
+    font-size: 5.6pt;
+    line-height: 1.05;
+  }
+
+  body.print-exec-health-report.print-tight-exec-report .director-roster-wrap {
+    padding: 0 5px 3px;
+  }
+
+  body.print-exec-health-report.print-tight-exec-report .director-roster {
+    gap: 2px;
+    margin-top: 2px;
+  }
+
+  body.print-exec-health-report.print-tight-exec-report .director-roster-list {
+    gap: 2px 8px;
+  }
+
+  body.print-exec-health-report.print-tight-exec-report .director-roster-column {
+    gap: 1px;
+  }
+
+  body.print-exec-health-report.print-tight-exec-report .director-roster-card h3,
+  body.print-exec-health-report.print-tight-exec-report .director-roster-item strong {
+    font-size: 6.6pt;
+  }
+
+  body.print-exec-health-report.print-tight-exec-report .director-roster-item span {
+    font-size: 5.8pt;
+  }
+
   body.print-flowers-report,
   body.print-flowers-report .shell {
     page: flowers-report;
@@ -3155,6 +3416,7 @@ tbody tr.active {
   }
 
   .big-five-heading,
+  .big-five-service-heading,
   .health-heading,
   .flowers-report-heading {
     align-items: stretch;

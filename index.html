@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Campus Health Dashboard</title>
-    <link rel="stylesheet" href="./styles.css?v=20260730-flowers-report" />
+    <link rel="stylesheet" href="./styles.css?v=20260818-2-year-offscale" />
   </head>
   <body>
     <main class="shell">
@@ -99,6 +99,18 @@
           </figcaption>
           <div id="volatilityChart" class="chart chart-volatility" aria-label="Attendance movement chart"></div>
         </figure>
+      </section>
+
+      <section class="panel clean-trend-panel metric-mode-panel is-hidden" data-metric-panel="clean-trend">
+        <div class="panel-heading clean-trend-heading">
+          <div>
+            <span class="panel-kicker">Attendance Trend</span>
+            <h2 id="cleanTrendTitle">2 Year Trend</h2>
+          </div>
+          <span id="cleanTrendMeta" class="panel-meta"></span>
+        </div>
+        <div id="cleanTrendKpis" class="kpi-grid compact-kpis clean-trend-kpis"></div>
+        <div id="cleanTrendChart" class="chart chart-line clean-trend-chart" aria-label="2 year attendance trend chart"></div>
       </section>
 
       <section class="health-mode metric-mode-panel is-hidden" data-metric-panel="health">
@@ -394,6 +406,24 @@
             <div id="bigFivePhaseChart" class="chart chart-bars" aria-label="Big 5 phase chart"></div>
           </figure>
         </div>
+        <section id="bigFiveServicePanel" class="big-five-service-panel" aria-label="Big 5 service breakdown">
+          <div class="big-five-service-heading">
+            <div>
+              <span class="panel-kicker">Service Breakdown</span>
+              <h2 id="bigFiveServiceTitle">Attendance by Service</h2>
+            </div>
+            <span id="bigFiveServiceMeta" class="panel-meta"></span>
+          </div>
+          <div id="bigFiveServiceSummary" class="big-five-service-summary"></div>
+          <div class="big-five-service-table-wrap">
+            <table class="big-five-service-table">
+              <thead>
+                <tr id="bigFiveServiceTableHead"></tr>
+              </thead>
+              <tbody id="bigFiveServiceTable"></tbody>
+            </table>
+          </div>
+        </section>
         <div id="bigFiveInsights" class="big-five-insight-sections"></div>
         <div class="table-wrap">
           <table>
@@ -471,6 +501,6 @@
       </section>
     </main>
     <script src="https://alcdn.msauth.net/browser/2.38.2/js/msal-browser.min.js"></script>
-    <script type="module" src="./src/app.js?v=20260730-flowers-report"></script>
+    <script type="module" src="./src/app.js?v=20260818-2-year-offscale"></script>
   </body>
 </html>
