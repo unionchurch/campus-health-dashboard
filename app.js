@@ -1,5 +1,5 @@
-import dashboardData from "./dashboard-data.js?v=20260818-2-year-offscale";
-import { setupLiveExcel } from "./live-excel.js?v=20260818-2-year-offscale";
+import dashboardData from "./dashboard-data.js?v=20260818-comparison-hover";
+import { setupLiveExcel } from "./live-excel.js?v=20260818-comparison-hover";
 
 let data = dashboardData;
 
@@ -1469,10 +1469,12 @@ function renderLineChart(points, options = {}) {
     ...points.map((point) => point.value),
     ...comparisonPathPoints.map((point) => point.value),
   ];
+  const useFocusedScale = options.focusedScale !== false;
+  const yAxis = useFocusedScale ? cleanTrendYAxis(values) : null;
   const maxValue = Math.max(...values);
   const minValue = Math.min(...values);
-  const yMin = Math.max(0, minValue - (maxValue - minValue) * 0.25);
-  const yMax = maxValue + Math.max(10, (maxValue - minValue) * 0.18);
+  const yMin = yAxis?.min ?? Math.max(0, minValue - (maxValue - minValue) * 0.25);
+  const yMax = yAxis?.max ?? maxValue + Math.max(10, (maxValue - minValue) * 0.18);
   const x = (index) =>
     margin.left + (points.length === 1 ? innerWidth / 2 : (index / (points.length - 1)) * innerWidth);
   const domainStart = options.xDomainStart ? parseIsoDate(options.xDomainStart) : parseIsoDate(points[0].date);
@@ -1483,7 +1485,14 @@ function renderLineChart(points, options = {}) {
   const xPoint = (point, index) => (useDateScale ? xDate(point.date) : x(index));
   const xComparisonPoint = (point) =>
     useDateScale ? xDate(point.date) : x(pointIndexByDate.get(point.date));
-  const y = (value) => margin.top + ((yMax - value) / (yMax - yMin)) * innerHeight;
+  const offScaleTopY = margin.top - 12;
+  const offScaleBottomY = margin.top + innerHeight + 12;
+  const y = (value) => {
+    if (useFocusedScale && value > yMax) return offScaleTopY;
+    if (useFocusedScale && value < yMin) return offScaleBottomY;
+    const scaledValue = useFocusedScale ? clampNumber(value, yMin, yMax) : value;
+    return margin.top + ((yMax - scaledValue) / (yMax - yMin)) * innerHeight;
+  };
   const linePath = points.map((point, index) => `${index === 0 ? "M" : "L"} ${xPoint(point, index)} ${y(point.value)}`).join(" ");
   const comparisonPath = comparisonPathPoints
     .map((point, index) => {
@@ -1493,7 +1502,7 @@ function renderLineChart(points, options = {}) {
   const areaPath = `${linePath} L ${xPoint(points.at(-1), points.length - 1)} ${margin.top + innerHeight} L ${xPoint(points[0], 0)} ${
     margin.top + innerHeight
   } Z`;
-  const gridValues = Array.from({ length: 5 }, (_, index) => yMin + ((yMax - yMin) / 4) * index);
+  const gridValues = yAxis?.ticks ?? Array.from({ length: 5 }, (_, index) => yMin + ((yMax - yMin) / 4) * index);
   const labelIndexes = new Set([0, Math.floor((points.length - 1) / 2), points.length - 1]);
   const axisDateLabels = useDateScale
     ? [
@@ -1505,6 +1514,60 @@ function renderLineChart(points, options = {}) {
       ]
     : [];
   const tooltipWidth = 250;
+  const comparisonLabel = options.comparisonLabel || "2025";
+  const comparisonPointMarkup = comparisonPathPoints
+    .map((point, index) => {
+      const sourceDate = point.sourceDate || point.date;
+      const noteLines = [`${comparisonLabel} comparison`];
+      if (sourceDate !== point.date) noteLines.push(`Aligned with ${shortDate(point.date)}`);
+      if (useFocusedScale && point.value > yMax) noteLines.push("Above focused scale");
+      if (useFocusedScale && point.value < yMin) noteLines.push("Below focused scale");
+      const pointChange = pointChangeSummary(point, index, comparisonPathPoints);
+      const cx = xComparisonPoint(point);
+      const cy = y(point.value);
+      const tooltipHeight = 50 + noteLines.length * 14;
+      const tooltipX = Math.min(Math.max(cx - tooltipWidth / 2, margin.left - 24), width - margin.right - tooltipWidth + 24);
+      const tooltipY = Math.max(cy - tooltipHeight - 18, margin.top - 10);
+      const isAxisClamped = useFocusedScale && (point.value > yMax || point.value < yMin);
+      const offScaleLabel = useFocusedScale && point.value > yMax ? formatCompactAxisValue(point.value) : null;
+      return `
+        <g class="chart-point-tooltip comparison-tooltip" data-comparison-tooltip-index="${index}" transform="translate(${tooltipX} ${tooltipY})">
+          <rect width="${tooltipWidth}" height="${tooltipHeight}" rx="7"></rect>
+          <text x="12" y="20">${escapeHtml(`${comparisonLabel}: ${shortDate(sourceDate)}`)}</text>
+          <text class="tooltip-number" x="12" y="38">
+            <tspan>${escapeHtml(formatNumber(point.value))}</tspan>
+            ${
+              pointChange
+                ? `<tspan class="tooltip-change ${pointChange.tone}" dx="8">${escapeHtml(pointChange.label)}</tspan>`
+                : ""
+            }
+          </text>
+          ${noteLines
+            .map(
+              (line, lineIndex) =>
+                `<text class="tooltip-note" x="12" y="${58 + lineIndex * 14}">${escapeHtml(line)}</text>`,
+            )
+            .join("")}
+        </g>
+        <circle class="point comparison-point ${
+          isAxisClamped ? "axis-clamped" : ""
+        }" data-comparison-point-index="${index}" tabindex="0" aria-label="${escapeHtml(
+          `${comparisonLabel} ${shortDate(sourceDate)} ${formatNumber(point.value)}`,
+        )}" cx="${cx}" cy="${cy}" r="3.5">
+          <title>${escapeHtml(comparisonLabel)} ${escapeHtml(shortDate(sourceDate))}: ${escapeHtml(
+            formatNumber(point.value),
+          )}</title>
+        </circle>
+        ${
+          offScaleLabel
+            ? `<text class="offscale-label" x="${cx}" y="${Math.max(8, cy - 8)}" text-anchor="middle">${escapeHtml(
+                offScaleLabel,
+              )}</text>`
+            : ""
+        }
+      `;
+    })
+    .join("");
 
   const svg = `
     <svg viewBox="0 0 ${width} ${height}" role="img">
@@ -1513,7 +1576,9 @@ function renderLineChart(points, options = {}) {
           const yy = y(value);
           return `
             <line class="grid-line" x1="${margin.left}" y1="${yy}" x2="${width - margin.right}" y2="${yy}"></line>
-            <text class="axis-label" x="${margin.left - 10}" y="${yy + 4}" text-anchor="end">${formatNumber(value)}</text>
+            <text class="axis-label" x="${margin.left - 10}" y="${yy + 4}" text-anchor="end">${
+              useFocusedScale ? formatCompactAxisValue(value) : formatNumber(value)
+            }</text>
           `;
         })
         .join("")}
@@ -1531,10 +1596,13 @@ function renderLineChart(points, options = {}) {
       }
       <path class="series-area" d="${areaPath}"></path>
       ${comparisonPath ? `<path class="series-line comparison-line" d="${comparisonPath}"></path>` : ""}
+      ${comparisonPointMarkup}
       <path class="series-line" d="${linePath}"></path>
       ${points
         .map((point, index) => {
           const noteLines = [...chartNoteLines(point.event), ...chartContextLines(point, index, points)].slice(0, 4);
+          if (useFocusedScale && point.value > yMax) noteLines.push("Above focused scale");
+          if (useFocusedScale && point.value < yMin) noteLines.push("Below focused scale");
           const pointChange = pointChangeSummary(point, index, points);
           const comparisonPoint = comparisonByDate.get(point.date);
           const hasNote = noteLines.length > 0;
@@ -1545,6 +1613,8 @@ function renderLineChart(points, options = {}) {
           const tooltipX = Math.min(Math.max(cx - tooltipWidth / 2, margin.left - 24), width - margin.right - tooltipWidth + 24);
           const tooltipY = Math.max(cy - tooltipHeight - 18, margin.top - 10);
           const noteStartY = comparisonPoint ? 72 : 58;
+          const isAxisClamped = useFocusedScale && (point.value > yMax || point.value < yMin);
+          const offScaleLabel = useFocusedScale && point.value > yMax ? formatCompactAxisValue(point.value) : null;
           return `
             <g class="chart-point-tooltip" data-tooltip-index="${index}" transform="translate(${tooltipX} ${tooltipY})">
               <rect width="${tooltipWidth}" height="${tooltipHeight}" rx="7"></rect>
@@ -1575,7 +1645,7 @@ function renderLineChart(points, options = {}) {
             </g>
             <circle class="point ${isEvent ? "event" : ""} ${
               state.selectedDate === point.date ? "selected" : ""
-            }" data-point-index="${index}" data-point-date="${point.date}" tabindex="0" aria-label="${escapeHtml(
+            } ${isAxisClamped ? "axis-clamped" : ""}" data-point-index="${index}" data-point-date="${point.date}" tabindex="0" aria-label="${escapeHtml(
               `${shortDate(point.date)} ${formatNumber(point.value)}${point.event ? ` ${point.event}` : ""}`,
             )}" cx="${cx}" cy="${cy}" r="${
               state.selectedDate === point.date ? 6 : isEvent ? 5 : 4
@@ -1584,6 +1654,13 @@ function renderLineChart(points, options = {}) {
                 point.event ? `, ${escapeHtml(point.event)}` : ""
               }</title>
             </circle>
+            ${
+              offScaleLabel
+                ? `<text class="offscale-label" x="${cx}" y="${Math.max(8, cy - 8)}" text-anchor="middle">${escapeHtml(
+                    offScaleLabel,
+                  )}</text>`
+                : ""
+            }
           `;
         })
         .join("")}
@@ -1612,30 +1689,56 @@ function renderLineChart(points, options = {}) {
 }
 
 function wireLineChartTooltips() {
-  let pinnedIndex = null;
+  let pinnedKey = null;
   const points = els.lineChart.querySelectorAll("[data-point-index]");
-  const tooltips = els.lineChart.querySelectorAll("[data-tooltip-index]");
+  const comparisonPoints = els.lineChart.querySelectorAll("[data-comparison-point-index]");
+  const tooltips = els.lineChart.querySelectorAll("[data-tooltip-index], [data-comparison-tooltip-index]");
 
-  const showTooltip = (index, pinned = false) => {
-    if (pinned) pinnedIndex = index;
+  const tooltipKey = (tooltip) =>
+    tooltip.dataset.tooltipIndex !== undefined
+      ? `current:${tooltip.dataset.tooltipIndex}`
+      : `comparison:${tooltip.dataset.comparisonTooltipIndex}`;
+  const clearTooltips = () => {
+    for (const tooltip of tooltips) tooltip.classList.remove("active");
+  };
+  const showTooltip = (key, pinned = false) => {
+    if (!pinned && pinnedKey !== null) return;
+    if (pinned) pinnedKey = key;
     for (const tooltip of tooltips) {
-      tooltip.classList.toggle("active", tooltip.dataset.tooltipIndex === index);
+      tooltip.classList.toggle("active", tooltipKey(tooltip) === key);
     }
   };
 
   const hideTooltip = () => {
-    if (pinnedIndex !== null) return;
-    for (const tooltip of tooltips) tooltip.classList.remove("active");
+    if (pinnedKey !== null) return;
+    clearTooltips();
   };
 
   for (const point of points) {
-    point.addEventListener("mouseenter", () => showTooltip(point.dataset.pointIndex));
-    point.addEventListener("focus", () => showTooltip(point.dataset.pointIndex));
+    const key = `current:${point.dataset.pointIndex}`;
+    point.addEventListener("mouseenter", () => showTooltip(key));
+    point.addEventListener("focus", () => showTooltip(key));
     point.addEventListener("mouseleave", hideTooltip);
     point.addEventListener("blur", hideTooltip);
     point.addEventListener("click", () => {
       state.selectedDate = state.selectedDate === point.dataset.pointDate ? null : point.dataset.pointDate;
       updateDashboard();
+    });
+  }
+
+  for (const point of comparisonPoints) {
+    const key = `comparison:${point.dataset.comparisonPointIndex}`;
+    point.addEventListener("mouseenter", () => showTooltip(key));
+    point.addEventListener("focus", () => showTooltip(key));
+    point.addEventListener("mouseleave", hideTooltip);
+    point.addEventListener("blur", hideTooltip);
+    point.addEventListener("click", () => {
+      if (pinnedKey === key) {
+        pinnedKey = null;
+        clearTooltips();
+        return;
+      }
+      showTooltip(key, true);
     });
   }
 }

@@ -417,6 +417,13 @@ figcaption,
   stroke: #000000;
 }
 
+.point.comparison-point {
+  fill: #2a262b;
+  stroke: var(--surface);
+  stroke-width: 2;
+  opacity: 0.82;
+}
+
 .point.axis-clamped {
   fill: #000000;
   stroke: var(--green);
