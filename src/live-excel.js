@@ -1927,6 +1927,7 @@ function extractTeamLeadVacancies(range, campuses = []) {
         month: rowMonth(row, ["month", "report_month", "date"]),
         campus: canonicalCampusName(rowText(row, ["campus"]), campuses),
         ministry: rowText(row, ["ministry", "department"]),
+        teamArea: rowText(row, ["team_area", "team", "area", "team_or_area", "role", "role_name", "position"]),
         filledCount,
         neededCount,
         vacancyCount,

@@ -1,5 +1,5 @@
-import dashboardData from "./dashboard-data.js?v=20260818-comparison-hover";
-import { setupLiveExcel } from "./live-excel.js?v=20260818-comparison-hover";
+import dashboardData from "./dashboard-data.js?v=20260915-whs-2026";
+import { setupLiveExcel } from "./live-excel.js?v=20260915-whs-2026";
 
 let data = dashboardData;
 
@@ -311,6 +311,17 @@ const whs2026Goals = [
     stretchGoal: 1077,
     tenPctGoal: 1077,
   },
+];
+
+const whs2026Event = { event: "Welcome Home Sunday", label: "Welcome Home Sunday" };
+const whs2026MainDate = "2026-09-13";
+const whs2026Phases = [
+  { date: "2026-09-06", phase: "01 Pre Event", phaseLabel: "Pre Event" },
+  { date: whs2026MainDate, phase: "07 Total", phaseLabel: "Main Sunday" },
+  { date: "2026-09-20", phase: "08 Post Week 1", phaseLabel: "Post Week 1" },
+  { date: "2026-09-27", phase: "09 Post Week 2", phaseLabel: "Post Week 2" },
+  { date: "2026-10-04", phase: "10 Post Week 3", phaseLabel: "Post Week 3" },
+  { date: "2026-10-11", phase: "11 Post Week 4", phaseLabel: "Post Week 4" },
 ];
 
 const flowersReportCampus = "Flowers";
@@ -625,9 +636,13 @@ function isMultiWeekBigFiveEvent() {
   return eventText.includes("relationshipseries") || eventText.includes("atthemovies");
 }
 
-function isWelcomeHomeSundayEvent() {
-  const eventText = normalizeText(`${state.bigFiveEvent} ${bigFiveEventLabel()}`);
+function isWelcomeHomeSundayValue(event, label = "") {
+  const eventText = normalizeText(`${event} ${label}`);
   return eventText.includes("welcomehomesunday") || eventText === "whs" || eventText.includes("whs");
+}
+
+function isWelcomeHomeSundayEvent() {
+  return isWelcomeHomeSundayValue(state.bigFiveEvent, bigFiveEventLabel());
 }
 
 function isGoalBigFiveEvent() {
@@ -658,12 +673,35 @@ function whsGoalSummary(campus = state.campus) {
   };
 }
 
+function hasWhs2026Attendance() {
+  return data.campuses.some((campus) => Boolean(pointForCampusDate("attendance", campus, whs2026MainDate)));
+}
+
+function welcomeHomeBigFiveEventOption() {
+  return (
+    data.bigFive.events.find((event) => isWelcomeHomeSundayValue(event.event, event.label)) ||
+    (hasWhs2026Attendance() ? whs2026Event : null)
+  );
+}
+
+function bigFiveEventOptions() {
+  const events = [...(data.bigFive.events || [])];
+  if (hasWhs2026Attendance() && !events.some((event) => isWelcomeHomeSundayValue(event.event, event.label))) {
+    events.push(whs2026Event);
+  }
+  return events;
+}
+
 function defaultBigFiveEvent() {
   const latest = data.bigFive.eventYears
     .filter((row) => row.campaignTotal > 0)
     .sort((a, b) => a.endDate.localeCompare(b.endDate))
     .at(-1);
-  return latest?.event || data.bigFive.events[0]?.event;
+  const welcomeHome = welcomeHomeBigFiveEventOption();
+  if (welcomeHome && hasWhs2026Attendance() && (!latest?.endDate || latest.endDate < whs2026MainDate)) {
+    return welcomeHome.event;
+  }
+  return latest?.event || welcomeHome?.event || data.bigFive.events[0]?.event;
 }
 
 function setupControls() {
@@ -760,13 +798,14 @@ function syncCampusOptions() {
 function syncBigFiveOptions() {
   const current = state.bigFiveEvent;
   els.bigFiveEventSelect.innerHTML = "";
-  for (const event of data.bigFive.events) {
+  const events = bigFiveEventOptions();
+  for (const event of events) {
     const option = document.createElement("option");
     option.value = event.event;
     option.textContent = event.label;
     els.bigFiveEventSelect.append(option);
   }
-  const eventKeys = data.bigFive.events.map((event) => event.event);
+  const eventKeys = events.map((event) => event.event);
   state.bigFiveEvent = eventKeys.includes(current) ? current : defaultBigFiveEvent();
   els.bigFiveEventSelect.value = state.bigFiveEvent;
 }
@@ -3461,6 +3500,14 @@ function previousMonthKey(month) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
+function nextMonthKey(month) {
+  if (!month) return null;
+  const [year, monthNumber] = month.split("-").map(Number);
+  if (!year || !monthNumber) return null;
+  const date = new Date(year, monthNumber, 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
 function semesterYear(row, fallbackMonth) {
   if (isFiniteNumber(row.year)) return Math.round(row.year);
   const source = row.startDate || row.month || fallbackMonth;
@@ -3504,10 +3551,26 @@ function sumConfig(rows, field) {
   return sumNumbers(rows.map((row) => row[field]));
 }
 
+function fallPreviewConfigRowsFor(campuses, month) {
+  if (!month || !month.endsWith("-08")) return [];
+  const reportYear = Number(month.slice(0, 4));
+  const nextMonth = nextMonthKey(month);
+  return (data.health?.groupConfig || []).filter((row) => {
+    if (!campuses.includes(row.campus)) return false;
+    const rowYear = semesterYear(row, month);
+    const semester = normalizeText(row.semester);
+    const startsNextMonth = semesterStartMonth(row, month) === nextMonth || row.month === nextMonth;
+    const isFall = semester.includes("fall") || startsNextMonth;
+    return isFall && (!rowYear || rowYear === reportYear);
+  });
+}
+
 function groupConfigFor(campuses, month) {
-  const rows = (data.health?.groupConfig || []).filter(
+  const rowsForMonth = (data.health?.groupConfig || []).filter(
     (row) => campuses.includes(row.campus) && configCoversMonth(row, month),
   );
+  const previewRows = fallPreviewConfigRowsFor(campuses, month);
+  const rows = previewRows.length ? previewRows : rowsForMonth;
   if (!rows.length) return null;
   return {
     groupGoal: sumConfig(rows, "groupGoal"),
@@ -4785,31 +4848,17 @@ function teamLeadVacancyStartedByMonth(row, month) {
 
 function teamLeadVacancyEffectiveMonth(row) {
   return (
-    monthKeyFromDateLike(row.partiallyFilledDate) ||
     monthKeyFromDateLike(row.vacantSince) ||
     row.month ||
+    monthKeyFromDateLike(row.partiallyFilledDate) ||
     null
   );
 }
 
-function latestTeamLeadVacancyRowsFor(campuses, month) {
-  const byCampusMinistry = new Map();
-  (data.health?.teamLeadVacancies || []).forEach((row, index) => {
-    if (!campuses.includes(row.campus) || !teamLeadVacancyStartedByMonth(row, month)) return;
-    const key = `${normalizeText(row.campus)}::${normalizeText(row.ministry)}`;
-    const effectiveMonth = teamLeadVacancyEffectiveMonth(row) || "0000-00";
-    const existing = byCampusMinistry.get(key);
-    if (
-      !existing ||
-      effectiveMonth > existing.effectiveMonth ||
-      (effectiveMonth === existing.effectiveMonth && index > existing.index)
-    ) {
-      byCampusMinistry.set(key, { row, effectiveMonth, index });
-    }
-  });
-  return Array.from(byCampusMinistry.values())
-    .map((entry) => entry.row)
-    .filter((row) => teamLeadVacancyVisibleInMonth(row, month));
+function teamLeadVacancyRowsFor(campuses, month) {
+  return (data.health?.teamLeadVacancies || []).filter(
+    (row) => campuses.includes(row.campus) && teamLeadVacancyVisibleInMonth(row, month),
+  );
 }
 
 function vacancyCountForRow(row) {
@@ -4820,20 +4869,36 @@ function vacancyCountForRow(row) {
   return null;
 }
 
+function teamLeadMinistryVacancyRowsFor(campuses, month) {
+  const grouped = new Map();
+  for (const row of teamLeadVacancyRowsFor(campuses, month)) {
+    const vacancies = vacancyCountForRow(row);
+    if (!isFiniteNumber(vacancies) || vacancies <= 0) continue;
+    const ministry = row.ministry || "No ministry listed";
+    const key = normalizeText(ministry);
+    if (!grouped.has(key)) grouped.set(key, { ministry, vacancies: 0 });
+    grouped.get(key).vacancies += vacancies;
+  }
+
+  return Array.from(grouped.values()).sort(
+    (a, b) => b.vacancies - a.vacancies || String(a.ministry || "").localeCompare(String(b.ministry || "")),
+  );
+}
+
 function roleMinistryVacancyRowsFor(campuses, month, roleLevel) {
   const role = String(roleLevel || "").toLowerCase();
+  if (role === "team lead") return teamLeadMinistryVacancyRowsFor(campuses, month);
+
   const rows =
-    role === "team lead"
-      ? latestTeamLeadVacancyRowsFor(campuses, month)
-      : dirCoordRowsForLeadershipTotals(
-          (data.health?.dirCoordVacancies || []).filter(
-            (row) =>
-              String(row.roleLevel || "").toLowerCase() === role &&
-              campuses.includes(row.campus) &&
-              dirCoordVacancyVisibleInMonth(row, month),
-          ),
-          roleLevel,
-        );
+    dirCoordRowsForLeadershipTotals(
+      (data.health?.dirCoordVacancies || []).filter(
+        (row) =>
+          String(row.roleLevel || "").toLowerCase() === role &&
+          campuses.includes(row.campus) &&
+          dirCoordVacancyVisibleInMonth(row, month),
+      ),
+      roleLevel,
+    );
 
   const grouped = new Map();
   for (const row of rows) {
@@ -6058,12 +6123,51 @@ function renderGrowthHistory() {
   renderGrowthHistoryTable(years);
 }
 
+function derivedWhs2026Rows() {
+  const eventOption = welcomeHomeBigFiveEventOption() || whs2026Event;
+  const rows = [];
+  for (const phase of whs2026Phases) {
+    for (const campus of data.campuses) {
+      const point = pointForCampusDate("attendance", campus, phase.date);
+      if (!point || !isFiniteNumber(point.value) || point.value <= 0) continue;
+      rows.push({
+        event: eventOption.event,
+        eventLabel: eventOption.label || eventOption.event,
+        year: 2026,
+        date: phase.date,
+        campus,
+        phase: phase.phase,
+        phaseLabel: phase.phaseLabel,
+        attendance: Math.round(point.value),
+      });
+    }
+  }
+  return rows;
+}
+
+function mergeBigFiveRowsWithDerived(baseRows, derivedRows) {
+  const merged = new Map();
+  for (const row of derivedRows) {
+    merged.set(`${row.year}::${row.date}::${row.campus}::${row.phase}`, row);
+  }
+  for (const row of baseRows) {
+    merged.set(`${row.year}::${row.date}::${row.campus}::${row.phase}`, row);
+  }
+  return Array.from(merged.values());
+}
+
 function summarizeBigFiveEvent() {
-  const rows = data.bigFive.rows.filter(
+  const baseRows = data.bigFive.rows.filter(
     (row) =>
       row.event === state.bigFiveEvent &&
       (state.campus === "All Campuses" || row.campus === state.campus),
   );
+  const rows = isWelcomeHomeSundayEvent()
+    ? mergeBigFiveRowsWithDerived(
+        baseRows,
+        derivedWhs2026Rows().filter((row) => state.campus === "All Campuses" || row.campus === state.campus),
+      )
+    : baseRows;
   const byYear = new Map();
 
   for (const row of rows) {
@@ -6228,7 +6332,7 @@ function renderBarList(container, rows, options = {}) {
 }
 
 function bigFiveEventLabel() {
-  return data.bigFive.events.find((event) => event.event === state.bigFiveEvent)?.label || "Big 5";
+  return bigFiveEventOptions().find((event) => event.event === state.bigFiveEvent)?.label || "Big 5";
 }
 
 function renderBigFiveKpis(records) {
